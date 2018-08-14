@@ -7,9 +7,9 @@
 package core
 
 import (
-	"github.com/txpool/common"
-	"github.com/txpool/core/types"
-	"github.com/txpool/common/log"
+	"github.com/DSiSc/txpool/common"
+	"github.com/DSiSc/txpool/core/types"
+	"github.com/DSiSc/txpool/common/log"
 )
 
 // DefaultTxPoolConfig contains the default configurations for the transaction pool.

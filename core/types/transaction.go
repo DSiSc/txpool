@@ -2,7 +2,7 @@ package types
 
 import (
 	"sync/atomic"
-	"github.com/txpool/common"
+	"github.com/DSiSc/txpool/common"
 	"math/big"
 )
 

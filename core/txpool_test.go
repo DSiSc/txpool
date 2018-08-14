@@ -3,8 +3,8 @@ package core
 import (
 	"math/big"
 	"testing"
-	"github.com/txpool/common"
-	"github.com/txpool/core/types"
+	"github.com/DSiSc/txpool/common"
+	"github.com/DSiSc/txpool/core/types"
 )
 
 // mock a config for txpool
