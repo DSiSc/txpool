@@ -7,17 +7,9 @@
 package core
 
 import (
-	"errors"
 	"github.com/txpool/common"
 	"github.com/txpool/core/types"
 	"github.com/txpool/common/log"
-)
-
-// define errors description for error.
-var (
-	ErrDuplicateTxs = errors.New("duplicate transaction")
-	ErrTxPoolHasFull = errors.New("txpool has full now")
-	ErrAccountTxsPoolHasFull = errors.New("pending of the account has full now")
 )
 
 // DefaultTxPoolConfig contains the default configurations for the transaction pool.
