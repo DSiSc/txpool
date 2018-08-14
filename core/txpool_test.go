@@ -107,7 +107,7 @@ func Test_DelTxs(t *testing.T){
 	}
 
 	txpool.DelTxs()
-	t.Log("PASS: success to get tx from txpool.")
+	t.Log("PASS: success to del tx from txpool.")
 }
 
 
