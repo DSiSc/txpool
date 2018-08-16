@@ -1,9 +1,9 @@
 package common
 
 import (
-	"reflect"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
+	"reflect"
 )
 
 // Lengths of hashes and addresses in bytes.

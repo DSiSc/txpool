@@ -1,9 +1,9 @@
 package types
 
 import (
-	"sync/atomic"
 	"github.com/DSiSc/txpool/common"
 	"math/big"
+	"sync/atomic"
 )
 
 type Transaction struct {
@@ -33,7 +33,7 @@ type txdata struct {
 // TxList is a "list" of transactions belonging to an account.
 type TxList struct {
 	// TODO: we only defint tx list for current version
-	Txs     []*Transaction
+	Txs []*Transaction
 }
 
 // Hash hashes the RLP encoding of tx.

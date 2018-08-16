@@ -1,7 +1,7 @@
 package log
 
 import (
-    "log"
+	"log"
 )
 
 func Info(format string) {
