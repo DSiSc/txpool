@@ -20,7 +20,7 @@ jobs:
     steps:
       - checkout
 
-      - run: go get -u golang.org/x/lint/golint; go get -u github.com/kardianos/govendor
+      - run: go get -u golang.org/x/lint/golint; go get -u github.com/kardianos/govendor; go get github.com/stretchr/testify
       - run: go vet ./... && govendor init && govendor fetch +m
       - run: golint common/... core/...
       - run: go build -v ./...
