@@ -112,10 +112,10 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 }
 
 // Update processing queue, clean txs from process and all queue.
-func (pool *TxPool) DelTxs() {
+func (pool *TxPool) DelTxs() error {
 	// TODO: Adding a queue to sign some txs has been processed.
 	log.Info("Update txpool after the txs has been applied by producer.")
-	return
+	return nil
 }
 
 // Adding transaction to the txpool

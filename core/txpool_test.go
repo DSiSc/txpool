@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/core/types"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 )
@@ -36,76 +37,55 @@ func mock_transactions(num int) []*types.Transaction {
 // Test new a txpool
 func Test_NewTxPool(t *testing.T) {
 	var slot uint64 = 64
+	assert := assert.New(t)
+
 	mock_config := mock_txpool_config(slot)
 	txpool := NewTxPool(mock_config)
-	if nil != txpool {
-		t.Log("PASS: success to create a txpool.")
-	} else {
-		t.Error("UNPASS: failed to create a txpool")
-	}
-
-	if txpool.config.GlobalSlots == slot {
-		t.Log("PASS: getting global slots suceess.")
-	} else {
-		t.Error("UNPASS: getting global slots failed")
-	}
+	assert.NotNil(txpool)
+	assert.Equal(slot, txpool.config.GlobalSlots, "they should be equal")
 }
 
 // Test add a tx to txpool
 func Test_AddTx(t *testing.T) {
+	assert := assert.New(t)
+
 	txList := mock_transactions(2)
-	if nil == txList {
-		t.Error("UNPASS: mokc a transaction failed.")
-	}
+	assert.NotNil(txList)
+
 	txpool := NewTxPool(DefaultTxPoolConfig)
-	if nil == txpool {
-		t.Error("UNPASS: failed to create a txpool")
-	}
+	assert.NotNil(txpool)
+
 	// add the specified tx to txpool
 	txpool.AddTx(txList[0])
-	if 1 != txpool.all.Count() {
-		t.Error("UNPASS: failed to add a tx")
-	} else {
-		t.Log("PASS: success to add a tx to txpool.")
-	}
+	assert.Equal(1, txpool.all.Count(), "they should be equal")
+
 	// add deplicate tx to txpool
 	txpool.AddTx(txList[0])
-	if 1 != txpool.all.Count() {
-		t.Error("UNPASS: failed to add a duplicate tx")
-	} else {
-		t.Log("PASS: success to add a duplicate tx.")
-	}
-
+	assert.Equal(1, txpool.all.Count(), "they should be equal")
 }
 
 // Test Get a tx from txpool
 func Test_GetTxs(t *testing.T) {
+	assert := assert.New(t)
 	tx := mock_transactions(1)[0]
-	if nil == tx {
-		t.Error("UNPASS: mokc a transaction failed.")
-	}
+	assert.NotNil(tx)
 
 	txpool := NewTxPool(DefaultTxPoolConfig)
-	if nil == txpool {
-		t.Error("UNPASS: failed to create a txpool")
-	}
+	assert.NotNil(txpool)
 
 	txpool.AddTx(tx)
 	txList := txpool.GetTxs()
-	if 1 == len(txList) && txList[0].Hash() == tx.Hash() {
-		t.Log("PASS: success to get tx from txpool.")
-	} else {
-		t.Error("UNPASS: failed to get tx from txpool")
-	}
+	assert.Equal(1, len(txList), "they should be equal")
+	assert.Equal(txList[0].Hash(), tx.Hash(), "they should be equal")
 }
 
 // Test DelTxs txs from txpool
 func Test_DelTxs(t *testing.T) {
-	txpool := NewTxPool(DefaultTxPoolConfig)
-	if nil == txpool {
-		t.Error("UNPASS: failed to create a txpool")
-	}
+	assert := assert.New(t)
 
-	txpool.DelTxs()
-	t.Log("PASS: success to del tx from txpool.")
+	txpool := NewTxPool(DefaultTxPoolConfig)
+	assert.NotNil(txpool)
+
+	err := txpool.DelTxs()
+	assert.Nil(err)
 }
