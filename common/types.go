@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
+	"io"
 	"reflect"
 )
 
@@ -39,4 +40,18 @@ func CopyBytes(b []byte) (copiedBytes []byte) {
 	copy(copiedBytes, b)
 
 	return
+}
+
+func (u *Hash) Serialize(w io.Writer) error {
+	_, err := w.Write(u[:])
+	return err
+}
+
+func (u *Hash) ToArray() []byte {
+	x := make([]byte, HashLength)
+	for i := 0; i < HashLength; i++ {
+		x[i] = byte(u[i])
+	}
+
+	return x
 }
