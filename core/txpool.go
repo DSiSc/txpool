@@ -7,6 +7,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
 	"github.com/DSiSc/txpool/core/types"
@@ -64,7 +65,7 @@ type TxPool struct {
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound transactions from the network and local.
-func NewTxPool(config TxPoolConfig) *TxPool {
+func NewTxPool(config TxPoolConfig) TxsPool {
 	config = (&config).sanitize()
 
 	// Create the transaction pool with its initial settings
@@ -119,17 +120,18 @@ func (pool *TxPool) DelTxs() error {
 }
 
 // Adding transaction to the txpool
-func (pool *TxPool) AddTx(tx *types.Transaction) {
+func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	if uint64(pool.all.Count()) > DefaultTxPoolConfig.GlobalSlots {
 		log.Error("Txpool has full.")
 		// TODO: return an sepcified error
-		return
+		return fmt.Errorf("Txpool has full.")
 	}
 	if nil != pool.all.Get(tx.Hash()) {
 		log.Error("The tx has exist, please confirm.")
 		// TODO: return an sepcified error
-		return
+		return fmt.Errorf("The tx has exist.")
 	}
 
 	pool.all.Add(tx)
+	return nil
 }

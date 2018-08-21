@@ -42,7 +42,11 @@ func Test_NewTxPool(t *testing.T) {
 	mock_config := mock_txpool_config(slot)
 	txpool := NewTxPool(mock_config)
 	assert.NotNil(txpool)
-	assert.Equal(slot, txpool.config.GlobalSlots, "they should be equal")
+	switch instance := txpool.(type) {
+	case *TxPool:
+		//vte.config.GlobalSlots
+		assert.Equal(slot, instance.config.GlobalSlots, "they should be equal")
+	}
 }
 
 // Test add a tx to txpool
@@ -57,11 +61,20 @@ func Test_AddTx(t *testing.T) {
 
 	// add the specified tx to txpool
 	txpool.AddTx(txList[0])
-	assert.Equal(1, txpool.all.Count(), "they should be equal")
+	switch instance := txpool.(type) {
+	case *TxPool:
+		//vte.config.GlobalSlots
+		assert.Equal(1, instance.all.Count(), "they should be equal")
+	}
 
 	// add deplicate tx to txpool
 	txpool.AddTx(txList[0])
-	assert.Equal(1, txpool.all.Count(), "they should be equal")
+	switch instance := txpool.(type) {
+	case *TxPool:
+		//vte.config.GlobalSlots
+		assert.Equal(1, instance.all.Count(), "they should be equal")
+	}
+
 }
 
 // Test Get a tx from txpool
