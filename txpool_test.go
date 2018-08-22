@@ -1,8 +1,8 @@
-package core
+package txpool
 
 import (
 	"github.com/DSiSc/txpool/common"
-	"github.com/DSiSc/txpool/core/types"
+	"github.com/DSiSc/txpool/types"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"

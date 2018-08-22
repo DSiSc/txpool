@@ -4,13 +4,13 @@
 // The pool seperate processable transactions (which can be applied to the current state) and future transactions.
 // Transactions move between those two states over time as they are received and processed.
 
-package core
+package txpool
 
 import (
 	"fmt"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/common/log"
-	"github.com/DSiSc/txpool/core/types"
+	"github.com/DSiSc/txpool/types"
 )
 
 // DefaultTxPoolConfig contains the default configurations for the transaction pool.
