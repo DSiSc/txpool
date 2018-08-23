@@ -8,9 +8,8 @@ package txpool
 
 import (
 	"fmt"
-	"github.com/DSiSc/txpool/common"
+	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common/log"
-	"github.com/DSiSc/txpool/types"
 )
 
 // DefaultTxPoolConfig contains the default configurations for the transaction pool.
@@ -20,13 +19,13 @@ var DefaultTxPoolConfig = TxPoolConfig{
 
 // structure for tx lookup.
 type txLookup struct {
-	all map[common.Hash]*types.Transaction
+	all map[types.Hash]*types.Transaction
 }
 
 // newTxLookup returns a new txLookup structure.
 func newTxLookup() *txLookup {
 	return &txLookup{
-		all: make(map[common.Hash]*types.Transaction),
+		all: make(map[types.Hash]*types.Transaction),
 	}
 }
 
@@ -78,7 +77,7 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 }
 
 // Get returns a transaction if it exists in the lookup, or nil if not found.
-func (t *txLookup) Get(hash common.Hash) *types.Transaction {
+func (t *txLookup) Get(hash types.Hash) *types.Transaction {
 	return t.all[hash]
 }
 
@@ -93,7 +92,7 @@ func (t *txLookup) Add(tx *types.Transaction) {
 }
 
 // Remove removes a transaction from the lookup.
-func (t *txLookup) Remove(hash common.Hash) {
+func (t *txLookup) Remove(hash types.Hash) {
 	delete(t.all, hash)
 }
 

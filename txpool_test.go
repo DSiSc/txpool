@@ -1,8 +1,7 @@
 package txpool
 
 import (
-	"github.com/DSiSc/txpool/common"
-	"github.com/DSiSc/txpool/types"
+	"github.com/DSiSc/craft/types"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -18,9 +17,9 @@ func mock_txpool_config(slot uint64) TxPoolConfig {
 
 // mock a transaction
 func mock_transactions(num int) []*types.Transaction {
-	to := make([]common.Address, num)
+	to := make([]types.Address, num)
 	for m := 0; m < num; m++ {
-		for j := 0; j < common.AddressLength; j++ {
+		for j := 0; j < types.AddressLength; j++ {
 			to[m][j] = byte(m)
 		}
 	}
