@@ -9,7 +9,7 @@ package txpool
 import (
 	"fmt"
 	"github.com/DSiSc/craft/types"
-	"github.com/DSiSc/txpool/common/log"
+	"github.com/DSiSc/txpool/log"
 )
 
 // DefaultTxPoolConfig contains the default configurations for the transaction pool.
