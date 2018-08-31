@@ -9,12 +9,25 @@ package txpool
 import (
 	"fmt"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/log"
 )
 
-// DefaultTxPoolConfig contains the default configurations for the transaction pool.
-var DefaultTxPoolConfig = TxPoolConfig{
-	GlobalSlots: 4096,
+type TxsPool interface {
+	// AddTx add a transaction to the txpool.
+	AddTx(tx *types.Transaction) error
+
+	// DelTxs delete the transactions which in processing queue.
+	// Once a block was commited, transaction contained in the block can be removed.
+	DelTxs() error
+
+	// GetTxs gets the transactons which in pending status.
+	GetTxs() []*types.Transaction
+}
+
+type TxPool struct {
+	config TxPoolConfig
+	all    *txLookup
 }
 
 // structure for tx lookup.
@@ -34,6 +47,10 @@ type TxPoolConfig struct {
 	GlobalSlots uint64 // Maximum number of executable transaction slots for txpool
 }
 
+var DefaultTxPoolConfig = TxPoolConfig{
+	GlobalSlots: 4096, // Max size of transaction pool
+}
+
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
 func (config *TxPoolConfig) sanitize() TxPoolConfig {
 	conf := *config
@@ -42,25 +59,6 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
 	return conf
-}
-
-type TxsPool interface {
-	// AddTx add a transaction to the txpool.
-	AddTx(tx *types.Transaction) error
-
-	// DelTxs delete the transactions which in processing queue.
-	// Once a block was commited, transaction contained in the block can be removed.
-	DelTxs() error
-
-	// GetTxs gets the transactons which in pending status.
-	GetTxs() []*types.Transaction
-}
-
-// As we desigin, tree queues which is all, pending and processing in txpool.
-// The all receive transactions form network or local and reserve them to be scheduled by producer.
-type TxPool struct {
-	config TxPoolConfig
-	all    *txLookup
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound transactions from the network and local.
@@ -88,7 +86,7 @@ func (t *txLookup) Count() int {
 
 // Add adds a transaction to the lookup.
 func (t *txLookup) Add(tx *types.Transaction) {
-	t.all[tx.Hash()] = tx
+	t.all[common.TxHash(tx)] = tx
 }
 
 // Remove removes a transaction from the lookup.
@@ -125,7 +123,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		// TODO: return an sepcified error
 		return fmt.Errorf("Txpool has full.")
 	}
-	if nil != pool.all.Get(tx.Hash()) {
+	if nil != pool.all.Get(common.TxHash(tx)) {
 		log.Error("The tx has exist, please confirm.")
 		// TODO: return an sepcified error
 		return fmt.Errorf("The tx has exist.")

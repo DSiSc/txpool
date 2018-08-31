@@ -2,6 +2,7 @@ package txpool
 
 import (
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -27,7 +28,7 @@ func mock_transactions(num int) []*types.Transaction {
 	amount := new(big.Int)
 	txList := make([]*types.Transaction, 0)
 	for i := 0; i < num; i++ {
-		tx := types.NewTransaction(uint64(i), to[i], amount, uint64(i), amount, nil)
+		tx := common.NewTransaction(uint64(i), to[i], amount, uint64(i), amount, nil, to[i])
 		txList = append(txList, tx)
 	}
 	return txList
@@ -96,7 +97,7 @@ func Test_GetTxs(t *testing.T) {
 	txpool.AddTx(tx)
 	txList := txpool.GetTxs()
 	assert.Equal(1, len(txList), "they should be equal")
-	assert.Equal(txList[0].Hash(), tx.Hash(), "they should be equal")
+	assert.Equal(common.TxHash(txList[0]), common.TxHash(tx), "they should be equal")
 }
 
 // Test DelTxs txs from txpool
