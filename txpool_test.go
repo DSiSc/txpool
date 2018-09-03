@@ -1,6 +1,7 @@
 package txpool
 
 import (
+	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,6 @@ func mock_transactions(num int) []*types.Transaction {
 			to[m][j] = byte(m)
 		}
 	}
-
 	amount := new(big.Int)
 	txList := make([]*types.Transaction, 0)
 	for i := 0; i < num; i++ {
@@ -42,19 +42,17 @@ func Test_NewTxPool(t *testing.T) {
 	mock_config := mock_txpool_config(slot)
 	txpool := NewTxPool(mock_config)
 	assert.NotNil(txpool)
-	switch instance := txpool.(type) {
-	case *TxPool:
-		//vte.config.GlobalSlots
-		assert.Equal(slot, instance.config.GlobalSlots, "they should be equal")
-	}
+	instance := txpool.(*TxPool)
+	assert.Equal(slot, instance.config.GlobalSlots, "they should be equal")
+	assert.NotNil(instance.all)
+	assert.NotNil(instance.process)
+	assert.NotNil(instance.txsQueue)
 
 	mock_config = mock_txpool_config(uint64(0))
 	txpool = NewTxPool(mock_config)
-	switch instance := txpool.(type) {
-	case *TxPool:
-		//vte.config.GlobalSlots
-		assert.Equal(uint64(4096), instance.config.GlobalSlots, "they should be equal")
-	}
+	instance = txpool.(*TxPool)
+	assert.Equal(uint64(4096), instance.config.GlobalSlots, "they should be equal")
+
 }
 
 // Test add a tx to txpool
@@ -67,22 +65,21 @@ func Test_AddTx(t *testing.T) {
 	txpool := NewTxPool(DefaultTxPoolConfig)
 	assert.NotNil(txpool)
 
-	// add the specified tx to txpool
-	txpool.AddTx(txList[0])
-	switch instance := txpool.(type) {
-	case *TxPool:
-		//vte.config.GlobalSlots
-		assert.Equal(1, instance.all.Count(), "they should be equal")
-	}
+	err := txpool.AddTx(txList[0])
+	assert.Nil(err)
+	instance := txpool.(*TxPool)
 
 	// add duplicate tx to txpool
-	err := txpool.AddTx(txList[0])
+	err = txpool.AddTx(txList[0])
 	assert.NotNil(err)
-	switch instance := txpool.(type) {
-	case *TxPool:
-		//vte.config.GlobalSlots
-		assert.Equal(1, instance.all.Count(), "they should be equal")
-	}
+	errs := fmt.Errorf("The tx has exist.")
+	assert.Equal(errs, err)
+	instance = txpool.(*TxPool)
+	assert.Equal(1, instance.all.Count(), "they should be equal")
+
+	err = txpool.AddTx(txList[1])
+	assert.Nil(err)
+	assert.Equal(2, instance.all.Count(), "they should be equal")
 }
 
 // Test Get a tx from txpool
@@ -94,19 +91,38 @@ func Test_GetTxs(t *testing.T) {
 	txpool := NewTxPool(DefaultTxPoolConfig)
 	assert.NotNil(txpool)
 
+	pool := txpool.(*TxPool)
+	assert.Equal(0, len(pool.process))
+
 	txpool.AddTx(tx)
-	txList := txpool.GetTxs()
-	assert.Equal(1, len(txList), "they should be equal")
-	assert.Equal(common.TxHash(txList[0]), common.TxHash(tx), "they should be equal")
+	assert.Equal(0, len(pool.process))
+	assert.Equal(1, pool.all.Count())
+
+	pool.GetTxs()
+	assert.Equal(1, len(pool.process))
+	assert.Equal(1, pool.all.Count())
 }
 
 // Test DelTxs txs from txpool
 func Test_DelTxs(t *testing.T) {
 	assert := assert.New(t)
+	tx := mock_transactions(1)[0]
+	assert.NotNil(tx)
 
 	txpool := NewTxPool(DefaultTxPoolConfig)
 	assert.NotNil(txpool)
+	pool := txpool.(*TxPool)
+	assert.Equal(0, len(pool.process))
 
-	err := txpool.DelTxs()
-	assert.Nil(err)
+	pool.AddTx(tx)
+	assert.Equal(0, len(pool.process))
+	assert.Equal(1, pool.all.Count())
+
+	pool.GetTxs()
+	assert.Equal(1, len(pool.process))
+	assert.Equal(1, pool.all.Count())
+
+	pool.DelTxs()
+	assert.Equal(0, len(pool.process))
+	assert.Equal(0, pool.all.Count())
 }

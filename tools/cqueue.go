@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"errors"
 	"fmt"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
@@ -12,37 +11,34 @@ var BlockCapacity = 3
 var TxPoolCapacity = 10
 
 type CycleQueue struct {
-	c      *sync.Cond
-	cqueue []interface{}
-	ppos   int // 存放元素的位置
-	gpos   int // 获取元素的位置
-	total  int // 总的元素个数
+	c         *sync.Cond
+	cqueue    []interface{}
+	ppos      uint64 // index that put a item
+	gpos      uint64 // index that get a item
+	total     uint64 // total length of the queue
+	maxPerGet uint64 // max num of item a get
 }
 
-func NewQueue() *CycleQueue {
+func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
 	return &CycleQueue{
-		c:      sync.NewCond(&sync.Mutex{}),
-		cqueue: make([]interface{}, TxPoolCapacity),
-		total:  TxPoolCapacity,
+		c:         sync.NewCond(&sync.Mutex{}),
+		cqueue:    make([]interface{}, quesuSize),
+		total:     quesuSize,
+		maxPerGet: maxItemPerGet,
 	}
 }
 
-func pirntS(value interface{}, put bool, c *CycleQueue) {
-	switch value.(type) {
-	case *types.Transaction:
-		if put {
-			fmt.Printf("put item[%d]: %d and hash is %x.\n",
-				c.ppos, value.(*types.Transaction).Data.AccountNonce, common.TxHash((value.(*types.Transaction))))
-		} else {
-			fmt.Printf("get item[%d]: %d and hash is %x.\n",
-				c.gpos, (value.(*types.Transaction).Data.AccountNonce), common.TxHash((value.(*types.Transaction))))
-		}
-	default:
-		panic(errors.New("Unsupport type"))
+func pirntInfo(value interface{}, put bool, c *CycleQueue) {
+	tx := value.(*types.Transaction)
+	if put {
+		fmt.Printf("put item[%d]: %d and hash is %x.\n",
+			c.ppos, tx.Data.AccountNonce, common.TxHash(tx))
+	} else {
+		fmt.Printf("get item[%d]: %d and hash is %x.\n",
+			c.gpos, tx.Data.AccountNonce, common.TxHash(tx))
 	}
 }
 
-// 生产者
 func (cq *CycleQueue) Producer(value interface{}) {
 	cq.c.L.Lock()
 
@@ -52,16 +48,14 @@ func (cq *CycleQueue) Producer(value interface{}) {
 		cq.ppos = 0
 	}
 	cq.cqueue[cq.ppos] = value
-	pirntS(value, true, cq)
+	pirntInfo(value, true, cq)
 	cq.c.L.Unlock()
 
-	//c.Signal()
 }
 
-// 消费者
 func (cq *CycleQueue) Consumer() []interface{} {
-	var count = 0
-	var txs = make([]interface{}, 0, BlockCapacity)
+	var count uint64
+	var txs = make([]interface{}, 0, cq.maxPerGet)
 	for {
 		cq.c.L.Lock()
 		for cq.gpos == cq.ppos {
@@ -69,19 +63,19 @@ func (cq *CycleQueue) Consumer() []interface{} {
 			return txs
 		}
 
-		if count >= BlockCapacity {
+		if count >= cq.maxPerGet {
 			cq.c.L.Unlock()
 			return txs
 		}
 
 		cq.gpos += 1
-		if cq.gpos == cq.total { //roll back
+		if cq.gpos == cq.total {
 			cq.gpos = 0
 		}
 
 		tx := cq.cqueue[cq.gpos]
 		txs = append(txs, tx)
-		pirntS(tx, false, cq)
+		pirntInfo(tx, false, cq)
 		count = count + 1
 		cq.c.L.Unlock()
 	}

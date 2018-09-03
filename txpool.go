@@ -11,6 +11,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/log"
+	"github.com/DSiSc/txpool/tools"
 )
 
 type TxsPool interface {
@@ -28,6 +29,9 @@ type TxsPool interface {
 type TxPool struct {
 	config TxPoolConfig
 	all    *txLookup
+	// TODO: signature block that the transactions belong
+	process  []types.Hash
+	txsQueue *tools.CycleQueue
 }
 
 // structure for tx lookup.
@@ -44,11 +48,13 @@ func newTxLookup() *txLookup {
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type TxPoolConfig struct {
-	GlobalSlots uint64 // Maximum number of executable transaction slots for txpool
+	GlobalSlots    uint64 // Maximum number of executable transaction slots for txpool
+	MaxTrxPerBlock uint64 // Maximum num of transactions a block
 }
 
 var DefaultTxPoolConfig = TxPoolConfig{
-	GlobalSlots: 4096, // Max size of transaction pool
+	GlobalSlots:    4096,
+	MaxTrxPerBlock: 512,
 }
 
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
@@ -58,17 +64,22 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool global slots.")
 		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
+	if conf.MaxTrxPerBlock < 1 {
+		log.Warn("Sanitizing invalid txpool max num of transactions a block.")
+		conf.MaxTrxPerBlock = DefaultTxPoolConfig.MaxTrxPerBlock
+	}
 	return conf
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound transactions from the network and local.
 func NewTxPool(config TxPoolConfig) TxsPool {
 	config = (&config).sanitize()
-
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
-		config: config,
-		all:    newTxLookup(),
+		config:   config,
+		all:      newTxLookup(),
+		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrxPerBlock),
+		process:  make([]types.Hash, 0),
 	}
 
 	return pool
@@ -94,16 +105,14 @@ func (t *txLookup) Remove(hash types.Hash) {
 	delete(t.all, hash)
 }
 
-// Adding tx to the queue of all.
-func (pool *TxPool) addToAll(tx *types.Transaction) {
-	pool.all.Add(tx)
-}
-
 // Get pending txs from txpool.
 func (pool *TxPool) GetTxs() []*types.Transaction {
 	txList := make([]*types.Transaction, 0)
-	for _, tx := range pool.all.all {
+	txs := pool.txsQueue.Consumer()
+	for _, value := range txs {
+		tx := value.(*types.Transaction)
 		txList = append(txList, tx)
+		pool.process = append(pool.process, common.TxHash(tx))
 	}
 
 	return txList
@@ -111,24 +120,32 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs() error {
-	// TODO: Adding a queue to sign some txs has been processed.
 	log.Info("Update txpool after the txs has been applied by producer.")
+	for _, txHash := range pool.process {
+		pool.all.Remove(txHash)
+	}
+	pool.process = make([]types.Hash, 0)
 	return nil
+}
+
+func (pool *TxPool) addTx(tx *types.Transaction) {
+	// Add to queue
+	pool.txsQueue.Producer(tx)
+	// Add to all
+	pool.all.Add(tx)
 }
 
 // Adding transaction to the txpool
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	if uint64(pool.all.Count()) > DefaultTxPoolConfig.GlobalSlots {
 		log.Error("Txpool has full.")
-		// TODO: return an sepcified error
 		return fmt.Errorf("Txpool has full.")
 	}
 	if nil != pool.all.Get(common.TxHash(tx)) {
 		log.Error("The tx has exist, please confirm.")
-		// TODO: return an sepcified error
 		return fmt.Errorf("The tx has exist.")
 	}
 
-	pool.all.Add(tx)
+	pool.addTx(tx)
 	return nil
 }
