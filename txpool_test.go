@@ -100,7 +100,7 @@ func Test_GetTxs(t *testing.T) {
 
 	pool.GetTxs()
 	assert.Equal(1, len(pool.process))
-	assert.Equal(1, pool.all.Count())
+	assert.Equal(0, pool.all.Count())
 }
 
 // Test DelTxs txs from txpool
@@ -120,7 +120,7 @@ func Test_DelTxs(t *testing.T) {
 
 	pool.GetTxs()
 	assert.Equal(1, len(pool.process))
-	assert.Equal(1, pool.all.Count())
+	assert.Equal(0, pool.all.Count())
 
 	pool.DelTxs()
 	assert.Equal(0, len(pool.process))

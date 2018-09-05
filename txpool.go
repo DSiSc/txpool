@@ -113,6 +113,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		tx := value.(*types.Transaction)
 		txList = append(txList, tx)
 		pool.process = append(pool.process, common.TxHash(tx))
+		pool.all.Remove(common.TxHash(tx))
 	}
 
 	return txList
