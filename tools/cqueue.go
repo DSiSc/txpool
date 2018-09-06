@@ -28,10 +28,10 @@ func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
 func pirntInfo(value interface{}, put bool, c *CycleQueue) {
 	tx := value.(*types.Transaction)
 	if put {
-		log.Info("put item[%d]: %d and hash is %x.\n",
+		log.Info("put item[%d]: %d and hash is %x.",
 			c.ppos, tx.Data.AccountNonce, common.TxHash(tx))
 	} else {
-		log.Info("get item[%d]: %d and hash is %x.\n",
+		log.Info("get item[%d]: %d and hash is %x.",
 			c.gpos, tx.Data.AccountNonce, common.TxHash(tx))
 	}
 }
