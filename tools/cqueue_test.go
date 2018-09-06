@@ -8,6 +8,9 @@ import (
 
 var MockCQ *CycleQueue
 
+var BlockCapacity = 3
+var TxPoolCapacity = 10
+
 func TestNewQueue(t *testing.T) {
 	MockCQ = NewQueue(10, 3)
 	assert.NotNil(t, MockCQ)

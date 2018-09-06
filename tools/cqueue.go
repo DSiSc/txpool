@@ -7,9 +7,6 @@ import (
 	"sync"
 )
 
-var BlockCapacity = 3
-var TxPoolCapacity = 10
-
 type CycleQueue struct {
 	c         *sync.Cond
 	cqueue    []interface{}
