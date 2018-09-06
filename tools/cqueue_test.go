@@ -72,4 +72,6 @@ func TestCycleQueue_Consumer(t *testing.T) {
 	res = MockCQ.Consumer()
 	assert.Equal(t, 3, len(res))
 	assert.Equal(t, uint64(7), MockCQ.gpos)
+	res = MockCQ.Consumer()
+	assert.Equal(t, uint64(0), MockCQ.gpos)
 }
