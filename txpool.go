@@ -8,9 +8,9 @@ package txpool
 
 import (
 	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
-	"github.com/DSiSc/txpool/log"
 	"github.com/DSiSc/txpool/tools"
 )
 
@@ -61,11 +61,11 @@ var DefaultTxPoolConfig = TxPoolConfig{
 func (config *TxPoolConfig) sanitize() TxPoolConfig {
 	conf := *config
 	if conf.GlobalSlots < 1 {
-		log.Warn("Sanitizing invalid txpool global slots.")
+		log.Warn("Sanitizing invalid txpool global slots %d.", conf.GlobalSlots)
 		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
 	if conf.MaxTrxPerBlock < 1 {
-		log.Warn("Sanitizing invalid txpool max num of transactions a block.")
+		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", conf.MaxTrxPerBlock)
 		conf.MaxTrxPerBlock = DefaultTxPoolConfig.MaxTrxPerBlock
 	}
 	return conf
