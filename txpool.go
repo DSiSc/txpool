@@ -60,11 +60,11 @@ var DefaultTxPoolConfig = TxPoolConfig{
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
 func (config *TxPoolConfig) sanitize() TxPoolConfig {
 	conf := *config
-	if conf.GlobalSlots < 1 {
+	if conf.GlobalSlots < 1 || conf.GlobalSlots > DefaultTxPoolConfig.GlobalSlots {
 		log.Warn("Sanitizing invalid txpool global slots %d.", conf.GlobalSlots)
 		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
-	if conf.MaxTrxPerBlock < 1 {
+	if conf.MaxTrxPerBlock < 1 || conf.MaxTrxPerBlock > DefaultTxPoolConfig.MaxTrxPerBlock {
 		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", conf.MaxTrxPerBlock)
 		conf.MaxTrxPerBlock = DefaultTxPoolConfig.MaxTrxPerBlock
 	}
@@ -138,7 +138,7 @@ func (pool *TxPool) addTx(tx *types.Transaction) {
 
 // Adding transaction to the txpool
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
-	if uint64(pool.all.Count()) > DefaultTxPoolConfig.GlobalSlots {
+	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
 		log.Error("Txpool has full.")
 		return fmt.Errorf("Txpool has full.")
 	}

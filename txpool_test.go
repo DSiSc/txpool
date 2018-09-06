@@ -59,15 +59,23 @@ func Test_NewTxPool(t *testing.T) {
 func Test_AddTx(t *testing.T) {
 	assert := assert.New(t)
 
-	txList := mock_transactions(2)
+	txList := mock_transactions(3)
 	assert.NotNil(txList)
 
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	var MockTxPoolConfig = TxPoolConfig{
+		GlobalSlots:    2,
+		MaxTrxPerBlock: 2,
+	}
+
+	txpool := NewTxPool(MockTxPoolConfig)
 	assert.NotNil(txpool)
+	instance := txpool.(*TxPool)
+	assert.Equal(uint64(2), instance.config.GlobalSlots)
+	assert.Equal(uint64(2), instance.config.MaxTrxPerBlock)
 
 	err := txpool.AddTx(txList[0])
 	assert.Nil(err)
-	instance := txpool.(*TxPool)
+	instance = txpool.(*TxPool)
 
 	// add duplicate tx to txpool
 	err = txpool.AddTx(txList[0])
@@ -79,7 +87,13 @@ func Test_AddTx(t *testing.T) {
 
 	err = txpool.AddTx(txList[1])
 	assert.Nil(err)
-	assert.Equal(2, instance.all.Count(), "they should be equal")
+	assert.Equal(int(2), instance.all.Count(), "they should be equal")
+	err = txpool.AddTx(txList[2])
+	assert.NotNil(err)
+	instance = txpool.(*TxPool)
+	excErr := fmt.Errorf("Txpool has full.")
+	assert.Equal(excErr, err)
+
 }
 
 // Test Get a tx from txpool
