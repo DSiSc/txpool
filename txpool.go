@@ -111,11 +111,12 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 	txs := pool.txsQueue.Consumer()
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
+		log.Info("Get tx %x form txpool.", common.TxHash(tx))
 		txList = append(txList, tx)
 		pool.process = append(pool.process, common.TxHash(tx))
 		pool.all.Remove(common.TxHash(tx))
 	}
-
+	log.Info("Get txs %d form txpool.", len(txList))
 	return txList
 }
 
@@ -147,7 +148,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		log.Error("The tx %v has exist, please confirm.", common.TxHash(tx))
 		return fmt.Errorf("the tx %v has exist", common.TxHash(tx))
 	}
-
+	log.Info("Add tx %x to txpool.", common.TxHash(tx))
 	pool.addTx(tx)
 	return nil
 }
