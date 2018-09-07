@@ -121,6 +121,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs() error {
+	// TODO: ued in the future
 	log.Info("Update txpool after the txs has been applied by producer.")
 	for _, txHash := range pool.process {
 		pool.all.Remove(txHash)
@@ -140,11 +141,11 @@ func (pool *TxPool) addTx(tx *types.Transaction) {
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
 		log.Error("Txpool has full.")
-		return fmt.Errorf("Txpool has full.")
+		return fmt.Errorf("txpool has full")
 	}
 	if nil != pool.all.Get(common.TxHash(tx)) {
-		log.Error("The tx has exist, please confirm.")
-		return fmt.Errorf("The tx has exist.")
+		log.Error("The tx %v has exist, please confirm.", common.TxHash(tx))
+		return fmt.Errorf("the tx %v has exist", common.TxHash(tx))
 	}
 
 	pool.addTx(tx)
