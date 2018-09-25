@@ -140,3 +140,23 @@ func Test_DelTxs(t *testing.T) {
 	assert.Equal(0, len(pool.process))
 	assert.Equal(0, pool.all.Count())
 }
+
+func TestTxPool_GetTxByHash(t *testing.T) {
+	assert := assert.New(t)
+	tx := mock_transactions(1)[0]
+	assert.NotNil(tx)
+	txpool := NewTxPool(DefaultTxPoolConfig)
+	assert.NotNil(txpool)
+	pool := txpool.(*TxPool)
+
+	// try to et exist tx
+	err := pool.AddTx(tx)
+	assert.Nil(err)
+	exceptTx := pool.GetTxByHash(common.TxHash(tx))
+	assert.Equal(common.TxHash(tx), common.TxHash(exceptTx))
+
+	// try to get not exist tx
+	tx.Data.AccountNonce = uint64(10)
+	exceptTx = pool.GetTxByHash(common.TxHash(tx))
+	assert.Nil(exceptTx)
+}

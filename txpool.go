@@ -152,3 +152,12 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	pool.addTx(tx)
 	return nil
 }
+
+func (pool *TxPool) GetTxByHash(hash types.Hash) *types.Transaction {
+	txs := pool.all.Get(hash)
+	if nil == txs {
+		log.Warn("Txs [%v] not exist in pool.", hash)
+		return nil
+	}
+	return txs
+}
