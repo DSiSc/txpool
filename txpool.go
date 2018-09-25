@@ -19,11 +19,14 @@ type TxsPool interface {
 	AddTx(tx *types.Transaction) error
 
 	// DelTxs delete the transactions which in processing queue.
-	// Once a block was commited, transaction contained in the block can be removed.
+	// Once a block was committed, transaction contained in the block can be removed.
 	DelTxs() error
 
-	// GetTxs gets the transactons which in pending status.
+	// GetTxs gets the transactions which in pending status.
 	GetTxs() []*types.Transaction
+
+	// GetTxByHash gets transaction in all queue
+	GetTxByHash(types.Hash) *types.Transaction
 }
 
 type TxPool struct {
