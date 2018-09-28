@@ -80,7 +80,7 @@ func Test_AddTx(t *testing.T) {
 	// add duplicate tx to txpool
 	err = txpool.AddTx(txList[0])
 	assert.NotNil(err)
-	errs := fmt.Errorf("the tx [207 172 68 74 133 202 86 65 81 91 116 2 175 105 105 194 110 169 221 233 129 234 137 126 59 56 204 62 206 84 211 13] has exist")
+	errs := fmt.Errorf("the tx [15 72 229 1 174 103 134 209 244 212 139 199 131 35 99 73 0 242 47 255 200 150 184 19 9 134 78 65 28 61 137 244] has exist")
 	assert.Equal(errs, err)
 	instance = txpool.(*TxPool)
 	assert.Equal(1, instance.all.Count(), "they should be equal")
@@ -149,14 +149,18 @@ func TestTxPool_GetTxByHash(t *testing.T) {
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
 
-	// try to et exist tx
+	// try to get exist tx
 	err := pool.AddTx(tx)
 	assert.Nil(err)
 	exceptTx := pool.GetTxByHash(common.TxHash(tx))
 	assert.Equal(common.TxHash(tx), common.TxHash(exceptTx))
 
 	// try to get not exist tx
-	tx.Data.AccountNonce = uint64(10)
-	exceptTx = pool.GetTxByHash(common.TxHash(tx))
+	mockHash := types.Hash{
+		0xbd, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
+		0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
+	}
+	assert.NotEqual(exceptTx, mockHash)
+	exceptTx = pool.GetTxByHash(mockHash)
 	assert.Nil(exceptTx)
 }

@@ -3,7 +3,6 @@ package common
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"math/big"
 )
@@ -15,15 +14,27 @@ func Sum(bz []byte) []byte {
 	return hash[:types.HashLength]
 }
 
-func TxHash(tx *types.Transaction) (hash types.Hash) {
-	if nil == tx {
-		log.Warn("Tx is nil, so it's hash meaningless.")
-		return
+func TxHash(tx *types.Transaction) types.Hash {
+	if hash := tx.Hash.Load(); hash != nil {
+		return hash.(types.Hash)
 	}
-	jsonByte, _ := json.Marshal(tx)
+	hashData := types.TxData{
+		AccountNonce: tx.Data.AccountNonce,
+		Price:        tx.Data.Price,
+		GasLimit:     tx.Data.GasLimit,
+		Recipient:    tx.Data.Recipient,
+		Amount:       tx.Data.Amount,
+		Payload:      tx.Data.Payload,
+		V:            tx.Data.V,
+		R:            tx.Data.R,
+		S:            tx.Data.S,
+	}
+	jsonByte, _ := json.Marshal(hashData)
 	sumByte := Sum(jsonByte)
-	copy(hash[:], sumByte)
-	return
+	var temp types.Hash
+	copy(temp[:], sumByte)
+	tx.Hash.Store(temp)
+	return temp
 }
 
 func CopyBytes(b []byte) (copiedBytes []byte) {

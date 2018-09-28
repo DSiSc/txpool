@@ -32,20 +32,6 @@ func TestNewTransaction(t *testing.T) {
 	assert.Equal(emptyTx.Data.Price, big.NewInt(0))
 }
 
-func TestTxHash(t *testing.T) {
-	assert := assert.New(t)
-	hash := TxHash(emptyTx)
-	expect := types.Hash{
-		0x5f, 0xd5, 0x56, 0xa1, 0x56, 0x50, 0xcd, 0x19, 0xa2, 0xa, 0xd1, 0xa, 0xca, 0x46, 0xfe, 0xab,
-		0xdd, 0xb1, 0x1c, 0x3f, 0xa4, 0x99, 0x10, 0x9b, 0x98, 0xf9, 0x15, 0x10, 0xdb, 0x44, 0xf0, 0x15,
-	}
-	assert.Equal(expect, hash)
-
-	hash = TxHash(nil)
-	var exceptNilTxHash types.Hash
-	assert.Equal(exceptNilTxHash, hash)
-}
-
 func TestSum(t *testing.T) {
 	b := []byte{
 		0xb2, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
@@ -68,4 +54,26 @@ func TestCopyBytes(t *testing.T) {
 	}
 	c := CopyBytes(b)
 	assert.Equal(t, b, c)
+}
+
+func TestTxHash(t *testing.T) {
+	assert := assert.New(t)
+	b := types.Address{
+		0xb2, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
+		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
+	}
+	emptyTx = NewTransaction(
+		0,
+		b,
+		big.NewInt(0),
+		0,
+		big.NewInt(0),
+		b[:10],
+		b,
+	)
+	exceptHash := TxHash(emptyTx)
+	assert.Equal(exceptHash, emptyTx.Hash.Load().(types.Hash))
+
+	exceptHash1 := TxHash(emptyTx)
+	assert.Equal(exceptHash, exceptHash1)
 }
