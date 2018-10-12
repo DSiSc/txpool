@@ -7,6 +7,7 @@
 package txpool
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
@@ -60,6 +61,8 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	MaxTrxPerBlock: 512,
 }
 
+var GlobalTxsPool *TxPool
+
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
 func (config *TxPoolConfig) sanitize() TxPoolConfig {
 	conf := *config
@@ -84,7 +87,7 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrxPerBlock),
 		process:  make([]types.Hash, 0),
 	}
-
+	GlobalTxsPool = pool
 	return pool
 }
 
@@ -125,7 +128,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs() error {
-	// TODO: ued in the future
+	// TODO: used in the future
 	log.Info("Update txpool after the txs has been applied by producer.")
 	for _, txHash := range pool.process {
 		pool.all.Remove(txHash)
@@ -163,4 +166,24 @@ func (pool *TxPool) GetTxByHash(hash types.Hash) *types.Transaction {
 		return nil
 	}
 	return txs
+}
+
+func GetTxByHash(hash types.Hash) *types.Transaction {
+	txs := GlobalTxsPool.all.Get(hash)
+	if nil == txs {
+		log.Warn("Txs [%v] not exist in pool.", hash)
+		return nil
+	}
+	return txs
+}
+
+func GetNonceByAddress(address types.Address) uint64 {
+	defaultNonce := uint64(0)
+	for _, tx := range GlobalTxsPool.all.all {
+		txFrom := *tx.Data.From
+		if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
+			defaultNonce = tx.Data.AccountNonce
+		}
+	}
+	return defaultNonce
 }

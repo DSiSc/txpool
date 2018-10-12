@@ -141,7 +141,7 @@ func Test_DelTxs(t *testing.T) {
 	assert.Equal(0, pool.all.Count())
 }
 
-func TestTxPool_GetTxByHash(t *testing.T) {
+func TestGetTxByHash(t *testing.T) {
 	assert := assert.New(t)
 	tx := mock_transactions(1)[0]
 	assert.NotNil(tx)
@@ -149,10 +149,13 @@ func TestTxPool_GetTxByHash(t *testing.T) {
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
 
+	exceptTx := GetTxByHash(common.TxHash(tx))
+	assert.Nil(exceptTx)
+
 	// try to get exist tx
 	err := pool.AddTx(tx)
 	assert.Nil(err)
-	exceptTx := pool.GetTxByHash(common.TxHash(tx))
+	exceptTx = GetTxByHash(common.TxHash(tx))
 	assert.Equal(common.TxHash(tx), common.TxHash(exceptTx))
 
 	// try to get not exist tx
@@ -161,6 +164,31 @@ func TestTxPool_GetTxByHash(t *testing.T) {
 		0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
 	}
 	assert.NotEqual(exceptTx, mockHash)
-	exceptTx = pool.GetTxByHash(mockHash)
+	exceptTx = GetTxByHash(mockHash)
 	assert.Nil(exceptTx)
+}
+
+func TestGetNonceByAddress(t *testing.T) {
+	assert := assert.New(t)
+	txpool := NewTxPool(DefaultTxPoolConfig)
+	mockFromAddress := types.Address{
+		0xb2, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
+		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
+	}
+	mockToAddress := types.Address{
+		0xb1, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
+		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
+	}
+	// no transaction
+	nonce := GetNonceByAddress(mockFromAddress)
+	assert.Equal(uint64(0), nonce)
+
+	// exists transaction
+	for i := 0; i < 5; i++ {
+		tx := common.NewTransaction(uint64(i), mockToAddress, new(big.Int).SetUint64(uint64(i)), uint64(i), new(big.Int).SetUint64(uint64(i)), nil, mockFromAddress)
+		txpool.AddTx(tx)
+	}
+	// no transaction
+	nonce = GetNonceByAddress(mockFromAddress)
+	assert.Equal(uint64(4), nonce)
 }
