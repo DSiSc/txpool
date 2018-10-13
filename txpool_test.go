@@ -138,6 +138,8 @@ func Test_DelTxs(t *testing.T) {
 
 	pool.DelTxs(mock_transactions(1))
 	assert.Equal(1, len(pool.process))
+    // delete an not exists txs
+	pool.DelTxs(mock_transactions(1))
 }
 
 func TestGetTxByHash(t *testing.T) {

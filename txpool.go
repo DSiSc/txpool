@@ -21,7 +21,7 @@ type TxsPool interface {
 
 	// DelTxs delete the transactions which in processing queue.
 	// Once a block was committed, transaction contained in the block can be removed.
-	DelTxs(txs []*types.Transaction) error
+	DelTxs(txs []*types.Transaction)
 
 	// GetTxs gets the transactions which in pending status.
 	GetTxs() []*types.Transaction
@@ -123,21 +123,25 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 }
 
 // Update processing queue, clean txs from process and all queue.
-func (pool *TxPool) DelTxs(txs []*types.Transaction) error {
+func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	log.Info("Update txpool after the txs has been applied by producer.")
 	for i := 0; i < len(txs); i++ {
 		txList := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
+		exist := false
 		for j := 0; j < len(txList); j++ {
 			hash := common.TxHash(txList[j])
 			if bytes.Equal(txHash[:], hash[:]) {
 				pool.process[*txs[i].Data.From] = append(
 					pool.process[*txs[i].Data.From][:j], pool.process[*txs[i].Data.From][j+1:]...)
+				exist = true
 				break
 			}
 		}
+		if !exist {
+			log.Error("tx %v not exist in process, please confirm.", txHash)
+		}
 	}
-	return nil
 }
 
 // Adding transaction to the txpool
