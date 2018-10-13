@@ -21,20 +21,16 @@ type TxsPool interface {
 
 	// DelTxs delete the transactions which in processing queue.
 	// Once a block was committed, transaction contained in the block can be removed.
-	DelTxs() error
+	DelTxs(txs []*types.Transaction) error
 
 	// GetTxs gets the transactions which in pending status.
 	GetTxs() []*types.Transaction
-
-	// GetTxByHash gets transaction in all queue
-	GetTxByHash(types.Hash) *types.Transaction
 }
 
 type TxPool struct {
 	config TxPoolConfig
 	all    *txLookup
-	// TODO: signature block that the transactions belong
-	process  []types.Hash
+	process  map[types.Address][]*types.Transaction
 	txsQueue *tools.CycleQueue
 }
 
@@ -85,7 +81,7 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 		config:   config,
 		all:      newTxLookup(),
 		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrxPerBlock),
-		process:  make([]types.Hash, 0),
+		process:  make(map[types.Address][]*types.Transaction, 0),
 	}
 	GlobalTxsPool = pool
 	return pool
@@ -119,7 +115,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		tx := value.(*types.Transaction)
 		log.Info("Get tx %x form txpool.", common.TxHash(tx))
 		txList = append(txList, tx)
-		pool.process = append(pool.process, common.TxHash(tx))
+		pool.process[*tx.Data.From] = sortTxsByNonce(pool.process[*tx.Data.From], tx)
 		pool.all.Remove(common.TxHash(tx))
 	}
 	log.Info("Get txs %d form txpool.", len(txList))
@@ -127,21 +123,11 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 }
 
 // Update processing queue, clean txs from process and all queue.
-func (pool *TxPool) DelTxs() error {
-	// TODO: used in the future
+func (pool *TxPool) DelTxs(txs []*types.Transaction) error {
 	log.Info("Update txpool after the txs has been applied by producer.")
-	for _, txHash := range pool.process {
-		pool.all.Remove(txHash)
-	}
-	pool.process = make([]types.Hash, 0)
-	return nil
-}
 
-func (pool *TxPool) addTx(tx *types.Transaction) {
-	// Add to queue
-	pool.txsQueue.Producer(tx)
-	// Add to all
-	pool.all.Add(tx)
+	pool.process = make(map[types.Address][]*types.Transaction, 0)
+	return nil
 }
 
 // Adding transaction to the txpool
@@ -159,12 +145,35 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	return nil
 }
 
+func (pool *TxPool) addTx(tx *types.Transaction) {
+	// Add to queue
+	pool.txsQueue.Producer(tx)
+	// Add to all
+	pool.all.Add(tx)
+}
+
 func (pool *TxPool) GetTxByHash(hash types.Hash) *types.Transaction {
 	txs := pool.all.Get(hash)
 	if nil == txs {
 		log.Warn("Txs [%v] not exist in pool.", hash)
 		return nil
 	}
+	return txs
+}
+
+func sortTxsByNonce(txs []*types.Transaction, tx *types.Transaction) []*types.Transaction {
+	// simple sort
+	var index int
+	newNonce := tx.Data.AccountNonce
+	txsCount := len(txs)
+    for index = 0; index < txsCount; index++ {
+    	if newNonce > txs[index].Data.AccountNonce{
+    		break
+		}
+	}
+	temp := append([]*types.Transaction{}, txs[index:]...)
+	txs = append(txs[:index], tx)
+	txs = append(txs, temp...)
 	return txs
 }
 
@@ -177,13 +186,17 @@ func GetTxByHash(hash types.Hash) *types.Transaction {
 	return txs
 }
 
-func GetNonceByAddress(address types.Address) uint64 {
+func GetPoolNonce(address types.Address) uint64 {
 	defaultNonce := uint64(0)
 	for _, tx := range GlobalTxsPool.all.all {
 		txFrom := *tx.Data.From
 		if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
 			defaultNonce = tx.Data.AccountNonce
 		}
+	}
+	txs := GlobalTxsPool.process[address]
+	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce{
+		defaultNonce = txs[0].Data.AccountNonce
 	}
 	return defaultNonce
 }

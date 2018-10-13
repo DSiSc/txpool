@@ -136,7 +136,7 @@ func Test_DelTxs(t *testing.T) {
 	assert.Equal(1, len(pool.process))
 	assert.Equal(0, pool.all.Count())
 
-	pool.DelTxs()
+	pool.DelTxs(mock_transactions(1))
 	assert.Equal(0, len(pool.process))
 	assert.Equal(0, pool.all.Count())
 }
@@ -168,27 +168,49 @@ func TestGetTxByHash(t *testing.T) {
 	assert.Nil(exceptTx)
 }
 
-func TestGetNonceByAddress(t *testing.T) {
+
+func Test_sortTxsByNonce(t *testing.T) {
 	assert := assert.New(t)
+	txs := mock_transactions(5)
+	var temp []*types.Transaction
+	temp = sortTxsByNonce(temp, txs[0])
+	temp = sortTxsByNonce(temp, txs[1])
+	temp = sortTxsByNonce(temp, txs[2])
+	temp = sortTxsByNonce(temp, txs[3])
+	temp = sortTxsByNonce(temp, txs[4])
+	assert.Equal(5, len(temp))
+	assert.Equal(uint64(4), temp[0].Data.AccountNonce)
+	assert.Equal(uint64(3), temp[1].Data.AccountNonce)
+	assert.Equal(uint64(2), temp[2].Data.AccountNonce)
+	assert.Equal(uint64(1), temp[3].Data.AccountNonce)
+	assert.Equal(uint64(0), temp[4].Data.AccountNonce)
+}
+
+func TestGetPoolNonce(t *testing.T) {
+	assert := assert.New(t)
+	var txs []*types.Transaction
 	txpool := NewTxPool(DefaultTxPoolConfig)
+
 	mockFromAddress := types.Address{
 		0xb2, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
 		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
 	}
-	mockToAddress := types.Address{
-		0xb1, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
-		0xa2, 0x18, 0xc6, 0xa9, 0x27, 0x4d, 0x30, 0xab, 0x9a, 0x15,
-	}
-	// no transaction
-	nonce := GetNonceByAddress(mockFromAddress)
-	assert.Equal(uint64(0), nonce)
-
-	// exists transaction
 	for i := 0; i < 5; i++ {
-		tx := common.NewTransaction(uint64(i), mockToAddress, new(big.Int).SetUint64(uint64(i)), uint64(i), new(big.Int).SetUint64(uint64(i)), nil, mockFromAddress)
-		txpool.AddTx(tx)
+		tx := common.NewTransaction(uint64(i), mockFromAddress, new(big.Int).SetUint64(uint64(i)), uint64(i), new(big.Int).SetUint64(uint64(i)), nil, mockFromAddress)
+		txs = append(txs, tx)
 	}
-	// no transaction
-	nonce = GetNonceByAddress(mockFromAddress)
-	assert.Equal(uint64(4), nonce)
+
+	txpool.AddTx(txs[0])
+	txpool.AddTx(txs[1])
+
+	exceptNonce := GetPoolNonce(mockFromAddress)
+	assert.Equal(uint64(1), exceptNonce)
+
+	txpool.GetTxs()
+	exceptNonce = GetPoolNonce(mockFromAddress)
+	assert.Equal(uint64(1), exceptNonce)
+
+	txpool.AddTx(txs[2])
+	exceptNonce = GetPoolNonce(mockFromAddress)
+	assert.Equal(uint64(2), exceptNonce)
 }
