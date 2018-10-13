@@ -49,12 +49,12 @@ func newTxLookup() *txLookup {
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type TxPoolConfig struct {
 	GlobalSlots    uint64 // Maximum number of executable transaction slots for txpool
-	MaxTrxPerBlock uint64 // Maximum num of transactions a block
+	MaxTrsPerBlock uint64 // Maximum num of transactions a block
 }
 
 var DefaultTxPoolConfig = TxPoolConfig{
 	GlobalSlots:    4096,
-	MaxTrxPerBlock: 512,
+	MaxTrsPerBlock: 512,
 }
 
 var GlobalTxsPool *TxPool
@@ -66,9 +66,9 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool global slots %d.", conf.GlobalSlots)
 		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
-	if conf.MaxTrxPerBlock < 1 || conf.MaxTrxPerBlock > DefaultTxPoolConfig.MaxTrxPerBlock {
-		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", conf.MaxTrxPerBlock)
-		conf.MaxTrxPerBlock = DefaultTxPoolConfig.MaxTrxPerBlock
+	if conf.MaxTrsPerBlock < 1 || conf.MaxTrsPerBlock > DefaultTxPoolConfig.MaxTrsPerBlock {
+		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", conf.MaxTrsPerBlock)
+		conf.MaxTrsPerBlock = DefaultTxPoolConfig.MaxTrsPerBlock
 	}
 	return conf
 }
@@ -80,7 +80,7 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 	pool := &TxPool{
 		config:   config,
 		all:      newTxLookup(),
-		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrxPerBlock),
+		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrsPerBlock),
 		process:  make(map[types.Address][]*types.Transaction, 0),
 	}
 	GlobalTxsPool = pool

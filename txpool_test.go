@@ -64,14 +64,14 @@ func Test_AddTx(t *testing.T) {
 
 	var MockTxPoolConfig = TxPoolConfig{
 		GlobalSlots:    2,
-		MaxTrxPerBlock: 2,
+		MaxTrsPerBlock: 2,
 	}
 
 	txpool := NewTxPool(MockTxPoolConfig)
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
 	assert.Equal(uint64(2), instance.config.GlobalSlots)
-	assert.Equal(uint64(2), instance.config.MaxTrxPerBlock)
+	assert.Equal(uint64(2), instance.config.MaxTrsPerBlock)
 
 	err := txpool.AddTx(txList[0])
 	assert.Nil(err)
@@ -138,7 +138,7 @@ func Test_DelTxs(t *testing.T) {
 
 	pool.DelTxs(mock_transactions(1))
 	assert.Equal(1, len(pool.process))
-    // delete an not exists txs
+	// delete an not exists txs
 	pool.DelTxs(mock_transactions(1))
 }
 
