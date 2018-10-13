@@ -137,8 +137,7 @@ func Test_DelTxs(t *testing.T) {
 	assert.Equal(0, pool.all.Count())
 
 	pool.DelTxs(mock_transactions(1))
-	assert.Equal(0, len(pool.process))
-	assert.Equal(0, pool.all.Count())
+	assert.Equal(1, len(pool.process))
 }
 
 func TestGetTxByHash(t *testing.T) {
@@ -167,7 +166,6 @@ func TestGetTxByHash(t *testing.T) {
 	exceptTx = GetTxByHash(mockHash)
 	assert.Nil(exceptTx)
 }
-
 
 func Test_sortTxsByNonce(t *testing.T) {
 	assert := assert.New(t)

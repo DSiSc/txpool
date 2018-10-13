@@ -28,8 +28,8 @@ type TxsPool interface {
 }
 
 type TxPool struct {
-	config TxPoolConfig
-	all    *txLookup
+	config   TxPoolConfig
+	all      *txLookup
 	process  map[types.Address][]*types.Transaction
 	txsQueue *tools.CycleQueue
 }
@@ -125,8 +125,18 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs(txs []*types.Transaction) error {
 	log.Info("Update txpool after the txs has been applied by producer.")
-
-	pool.process = make(map[types.Address][]*types.Transaction, 0)
+	for i := 0; i < len(txs); i++ {
+		txList := pool.process[*txs[i].Data.From]
+		txHash := common.TxHash(txs[i])
+		for j := 0; j < len(txList); j++ {
+			hash := common.TxHash(txList[j])
+			if bytes.Equal(txHash[:], hash[:]) {
+				pool.process[*txs[i].Data.From] = append(
+					pool.process[*txs[i].Data.From][:j], pool.process[*txs[i].Data.From][j+1:]...)
+				break
+			}
+		}
+	}
 	return nil
 }
 
@@ -166,9 +176,9 @@ func sortTxsByNonce(txs []*types.Transaction, tx *types.Transaction) []*types.Tr
 	var index int
 	newNonce := tx.Data.AccountNonce
 	txsCount := len(txs)
-    for index = 0; index < txsCount; index++ {
-    	if newNonce > txs[index].Data.AccountNonce{
-    		break
+	for index = 0; index < txsCount; index++ {
+		if newNonce > txs[index].Data.AccountNonce {
+			break
 		}
 	}
 	temp := append([]*types.Transaction{}, txs[index:]...)
@@ -195,7 +205,7 @@ func GetPoolNonce(address types.Address) uint64 {
 		}
 	}
 	txs := GlobalTxsPool.process[address]
-	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce{
+	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
 		defaultNonce = txs[0].Data.AccountNonce
 	}
 	return defaultNonce
