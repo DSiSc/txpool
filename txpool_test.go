@@ -80,7 +80,7 @@ func Test_AddTx(t *testing.T) {
 	// add duplicate tx to txpool
 	err = txpool.AddTx(txList[0])
 	assert.NotNil(err)
-	errs := fmt.Errorf("the tx [15 72 229 1 174 103 134 209 244 212 139 199 131 35 99 73 0 242 47 255 200 150 184 19 9 134 78 65 28 61 137 244] has exist")
+	errs := fmt.Errorf("the tx 0f48e501ae6786d1f4d48bc78323634900f22fffc896b81309864e411c3d89f4 has exist")
 	assert.Equal(errs, err)
 	instance = txpool.(*TxPool)
 	assert.Equal(1, instance.all.Count(), "they should be equal")

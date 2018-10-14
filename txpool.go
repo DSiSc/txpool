@@ -34,12 +34,12 @@ type TxPool struct {
 	all      *txLookup
 	process  map[types.Address][]*types.Transaction
 	txsQueue *tools.CycleQueue
-	mu           sync.RWMutex
+	mu       sync.RWMutex
 }
 
 // structure for tx lookup.
 type txLookup struct {
-	all map[types.Hash]*types.Transaction
+	all  map[types.Hash]*types.Transaction
 	lock sync.RWMutex
 }
 
@@ -131,7 +131,6 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		txList = append(txList, tx)
 		pool.process[*tx.Data.From] = sortTxsByNonce(pool.process[*tx.Data.From], tx)
 		pool.all.Remove(common.TxHash(tx))
-		fmt.Printf("fanyl: get tx %x to block.\n", common.TxHash(tx))
 	}
 	log.Info("Get txs %d form txpool.", len(txList))
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
@@ -157,7 +156,7 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 			}
 		}
 		if !exist {
-			log.Error("tx %v not exist in process, please confirm.", txHash)
+			log.Error("tx %x not exist in process, please confirm.", txHash)
 		}
 	}
 }
@@ -175,8 +174,8 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	}
 	if nil != pool.all.Get(hash) {
 		monitor.JTMetrics.TxpoolDuplacatedTx.Add(float64(1))
-		log.Error("The tx %v has exist, please confirm.", hash)
-		return fmt.Errorf("the tx %v has exist", hash)
+		log.Error("The tx %x has exist, please confirm.", hash)
+		return fmt.Errorf("the tx %x has exist", hash)
 	}
 	pool.addTx(tx)
 	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
@@ -193,7 +192,7 @@ func (pool *TxPool) addTx(tx *types.Transaction) {
 func (pool *TxPool) GetTxByHash(hash types.Hash) *types.Transaction {
 	txs := pool.all.Get(hash)
 	if nil == txs {
-		log.Warn("Txs [%v] not exist in pool.", hash)
+		log.Warn("Tx %x not exist in pool.", hash)
 		return nil
 	}
 	return txs
@@ -218,7 +217,7 @@ func sortTxsByNonce(txs []*types.Transaction, tx *types.Transaction) []*types.Tr
 func GetTxByHash(hash types.Hash) *types.Transaction {
 	txs := GlobalTxsPool.all.Get(hash)
 	if nil == txs {
-		log.Warn("Txs [%v] not exist in pool.", hash)
+		log.Warn("Tx %x not exist in pool.", hash)
 		return nil
 	}
 	return txs
@@ -227,16 +226,16 @@ func GetTxByHash(hash types.Hash) *types.Transaction {
 func GetPoolNonce(address types.Address) uint64 {
 	defaultNonce := uint64(0)
 	/*
-	for _, tx := range GlobalTxsPool.all.all {
-		txFrom := *tx.Data.From
-		if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
-			defaultNonce = tx.Data.AccountNonce
+		for _, tx := range GlobalTxsPool.all.all {
+			txFrom := *tx.Data.From
+			if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
+				defaultNonce = tx.Data.AccountNonce
+			}
 		}
-	}
-	txs := GlobalTxsPool.process[address]
-	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
-		defaultNonce = txs[0].Data.AccountNonce
-	}
+		txs := GlobalTxsPool.process[address]
+		if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
+			defaultNonce = txs[0].Data.AccountNonce
+		}
 	*/
 	return defaultNonce
 }
