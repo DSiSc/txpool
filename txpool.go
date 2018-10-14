@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/DSiSc/craft/log"
+	"github.com/DSiSc/craft/monitor"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/tools"
@@ -133,6 +134,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		fmt.Printf("fanyl: get tx %x to block.\n", common.TxHash(tx))
 	}
 	log.Info("Get txs %d form txpool.", len(txList))
+	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
 	return txList
 }
 
@@ -165,15 +167,19 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	hash := common.TxHash(tx)
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
+	monitor.JTMetrics.TxpoolIngressTx.Add(float64(1))
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
 		log.Error("Txpool has full.")
+		monitor.JTMetrics.TxpoolDiscardedTx.Add(float64(1))
 		return fmt.Errorf("txpool has full")
 	}
 	if nil != pool.all.Get(hash) {
+		monitor.JTMetrics.TxpoolDuplacatedTx.Add(float64(1))
 		log.Error("The tx %v has exist, please confirm.", hash)
 		return fmt.Errorf("the tx %v has exist", hash)
 	}
 	pool.addTx(tx)
+	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
 	return nil
 }
 
