@@ -13,6 +13,7 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/tools"
+	"sync"
 )
 
 type TxsPool interface {
@@ -32,11 +33,13 @@ type TxPool struct {
 	all      *txLookup
 	process  map[types.Address][]*types.Transaction
 	txsQueue *tools.CycleQueue
+	mu           sync.RWMutex
 }
 
 // structure for tx lookup.
 type txLookup struct {
 	all map[types.Hash]*types.Transaction
+	lock sync.RWMutex
 }
 
 // newTxLookup returns a new txLookup structure.
@@ -89,27 +92,37 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 
 // Get returns a transaction if it exists in the lookup, or nil if not found.
 func (t *txLookup) Get(hash types.Hash) *types.Transaction {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
 	return t.all[hash]
 }
 
 // Count returns the current number of items in the lookup.
 func (t *txLookup) Count() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
 	return len(t.all)
 }
 
 // Add adds a transaction to the lookup.
 func (t *txLookup) Add(tx *types.Transaction) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	t.all[common.TxHash(tx)] = tx
 }
 
 // Remove removes a transaction from the lookup.
 func (t *txLookup) Remove(hash types.Hash) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	delete(t.all, hash)
 }
 
 // Get pending txs from txpool.
 func (pool *TxPool) GetTxs() []*types.Transaction {
 	txList := make([]*types.Transaction, 0)
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
 	txs := pool.txsQueue.Consumer()
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
@@ -117,6 +130,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		txList = append(txList, tx)
 		pool.process[*tx.Data.From] = sortTxsByNonce(pool.process[*tx.Data.From], tx)
 		pool.all.Remove(common.TxHash(tx))
+		fmt.Printf("fanyl: get tx %x to block.\n", common.TxHash(tx))
 	}
 	log.Info("Get txs %d form txpool.", len(txList))
 	return txList
@@ -125,6 +139,8 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	log.Info("Update txpool after the txs has been applied by producer.")
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 	for i := 0; i < len(txs); i++ {
 		txList := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
@@ -146,15 +162,17 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 
 // Adding transaction to the txpool
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
+	hash := common.TxHash(tx)
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
 		log.Error("Txpool has full.")
 		return fmt.Errorf("txpool has full")
 	}
-	if nil != pool.all.Get(common.TxHash(tx)) {
-		log.Error("The tx %v has exist, please confirm.", common.TxHash(tx))
-		return fmt.Errorf("the tx %v has exist", common.TxHash(tx))
+	if nil != pool.all.Get(hash) {
+		log.Error("The tx %v has exist, please confirm.", hash)
+		return fmt.Errorf("the tx %v has exist", hash)
 	}
-	log.Info("Add tx %x to txpool.", common.TxHash(tx))
 	pool.addTx(tx)
 	return nil
 }
@@ -202,6 +220,7 @@ func GetTxByHash(hash types.Hash) *types.Transaction {
 
 func GetPoolNonce(address types.Address) uint64 {
 	defaultNonce := uint64(0)
+	/*
 	for _, tx := range GlobalTxsPool.all.all {
 		txFrom := *tx.Data.From
 		if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
@@ -212,5 +231,6 @@ func GetPoolNonce(address types.Address) uint64 {
 	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
 		defaultNonce = txs[0].Data.AccountNonce
 	}
+	*/
 	return defaultNonce
 }

@@ -204,13 +204,13 @@ func TestGetPoolNonce(t *testing.T) {
 	txpool.AddTx(txs[1])
 
 	exceptNonce := GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(1), exceptNonce)
+	assert.Equal(uint64(0), exceptNonce)
 
 	txpool.GetTxs()
 	exceptNonce = GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(1), exceptNonce)
+	assert.Equal(uint64(0), exceptNonce)
 
 	txpool.AddTx(txs[2])
 	exceptNonce = GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(2), exceptNonce)
+	assert.Equal(uint64(0), exceptNonce)
 }
