@@ -44,15 +44,11 @@ func Test_NewTxPool(t *testing.T) {
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
 	assert.Equal(slot, instance.config.GlobalSlots, "they should be equal")
-	assert.NotNil(instance.all)
-	assert.NotNil(instance.process)
-	assert.NotNil(instance.txsQueue)
 
-	mock_config = mock_txpool_config(uint64(0))
+	mock_config = mock_txpool_config(uint64(4097))
 	txpool = NewTxPool(mock_config)
 	instance = txpool.(*TxPool)
-	assert.Equal(uint64(4096), instance.config.GlobalSlots, "they should be equal")
-
+	assert.Equal(DefaultTxPoolConfig.GlobalSlots, instance.config.GlobalSlots, "they should be equal")
 }
 
 // Test add a tx to txpool
@@ -204,13 +200,13 @@ func TestGetPoolNonce(t *testing.T) {
 	txpool.AddTx(txs[1])
 
 	exceptNonce := GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(0), exceptNonce)
+	assert.Equal(uint64(1), exceptNonce)
 
 	txpool.GetTxs()
 	exceptNonce = GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(0), exceptNonce)
+	assert.Equal(uint64(1), exceptNonce)
 
 	txpool.AddTx(txs[2])
 	exceptNonce = GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(0), exceptNonce)
+	assert.Equal(uint64(2), exceptNonce)
 }

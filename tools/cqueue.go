@@ -20,9 +20,10 @@ func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
 		cqueue:    make([]interface{}, quesuSize),
 		total:     quesuSize,
 		maxPerGet: maxItemPerGet,
-		full: false,
+		full:      false,
 	}
 }
+
 /*
 func pirntInfo(value interface{}, put bool, c *CycleQueue) {
 	tx := value.(*types.Transaction)
@@ -38,7 +39,7 @@ func pirntInfo(value interface{}, put bool, c *CycleQueue) {
 func (cq *CycleQueue) Producer(value interface{}) {
 	cq.c.L.Lock()
 	// roll back
-	if cq.ppos + 1 == cq.total {
+	if cq.ppos+1 == cq.total {
 		cq.cqueue[cq.ppos] = value
 		cq.ppos = 0
 		cq.full = true

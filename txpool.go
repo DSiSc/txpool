@@ -64,22 +64,20 @@ var DefaultTxPoolConfig = TxPoolConfig{
 var GlobalTxsPool *TxPool
 
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
-func (config *TxPoolConfig) sanitize() TxPoolConfig {
-	conf := *config
-	if conf.GlobalSlots < 1 || conf.GlobalSlots > DefaultTxPoolConfig.GlobalSlots {
-		log.Warn("Sanitizing invalid txpool global slots %d.", conf.GlobalSlots)
-		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
+func (config *TxPoolConfig) sanitize() {
+	if config.GlobalSlots < 1 || config.GlobalSlots > DefaultTxPoolConfig.GlobalSlots {
+		log.Warn("Sanitizing invalid txpool global slots %d.", config.GlobalSlots)
+		config.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
-	if conf.MaxTrsPerBlock < 1 || conf.MaxTrsPerBlock > DefaultTxPoolConfig.MaxTrsPerBlock {
-		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", conf.MaxTrsPerBlock)
-		conf.MaxTrsPerBlock = DefaultTxPoolConfig.MaxTrsPerBlock
+	if config.MaxTrsPerBlock < 1 || config.MaxTrsPerBlock > DefaultTxPoolConfig.MaxTrsPerBlock {
+		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", config.MaxTrsPerBlock)
+		config.MaxTrsPerBlock = DefaultTxPoolConfig.MaxTrsPerBlock
 	}
-	return conf
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound transactions from the network and local.
 func NewTxPool(config TxPoolConfig) TxsPool {
-	config = (&config).sanitize()
+	config.sanitize()
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
 		config:   config,
@@ -225,17 +223,17 @@ func GetTxByHash(hash types.Hash) *types.Transaction {
 
 func GetPoolNonce(address types.Address) uint64 {
 	defaultNonce := uint64(0)
-	/*
-		for _, tx := range GlobalTxsPool.all.all {
-			txFrom := *tx.Data.From
-			if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
-				defaultNonce = tx.Data.AccountNonce
-			}
+	GlobalTxsPool.all.lock.RLock()
+	for _, tx := range GlobalTxsPool.all.all {
+		txFrom := *tx.Data.From
+		if bytes.Equal(address[:], txFrom[:]) && tx.Data.AccountNonce > defaultNonce {
+			defaultNonce = tx.Data.AccountNonce
 		}
-		txs := GlobalTxsPool.process[address]
-		if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
-			defaultNonce = txs[0].Data.AccountNonce
-		}
-	*/
+	}
+	GlobalTxsPool.all.lock.RUnlock()
+	txs := GlobalTxsPool.process[address]
+	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
+		defaultNonce = txs[0].Data.AccountNonce
+	}
 	return defaultNonce
 }
