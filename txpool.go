@@ -162,11 +162,10 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 // Adding transaction to the txpool
 func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	hash := common.TxHash(tx)
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
 	monitor.JTMetrics.TxpoolIngressTx.Add(float64(1))
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
-		log.Error("Txpool has full.")
+		log.Error("Txpool has full, which define is %d, while we have %d.",
+			pool.config.GlobalSlots, uint64(pool.all.Count()))
 		monitor.JTMetrics.TxpoolDiscardedTx.Add(float64(1))
 		return fmt.Errorf("txpool has full")
 	}
@@ -181,6 +180,8 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 }
 
 func (pool *TxPool) addTx(tx *types.Transaction) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 	// Add to queue
 	pool.txsQueue.Producer(tx)
 	// Add to all
