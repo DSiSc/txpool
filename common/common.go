@@ -23,9 +23,6 @@ func Sum(bz []byte) []byte {
 }
 
 func TxHash(tx *types.Transaction) types.Hash {
-	if hash := tx.Hash.Load(); hash != nil {
-		return hash.(types.Hash)
-	}
 	hashData := types.TxData{
 		AccountNonce: tx.Data.AccountNonce,
 		Price:        tx.Data.Price,
@@ -41,7 +38,6 @@ func TxHash(tx *types.Transaction) types.Hash {
 	sumByte := Sum(jsonByte)
 	var temp types.Hash
 	copy(temp[:], sumByte)
-	tx.Hash.Store(temp)
 	return temp
 }
 
