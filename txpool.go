@@ -66,11 +66,11 @@ var GlobalTxsPool *TxPool
 // sanitize checks the provided user configurations and changes anything that's  unreasonable or unworkable.
 func (config *TxPoolConfig) sanitize() {
 	if config.GlobalSlots < 1 || config.GlobalSlots > DefaultTxPoolConfig.GlobalSlots {
-		log.Warn("Sanitizing invalid txpool global slots %d.", config.GlobalSlots)
+		log.Warn("Sanitizing invalid txs pool global slots %d.", config.GlobalSlots)
 		config.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
 	}
 	if config.MaxTrsPerBlock < 1 || config.MaxTrsPerBlock > DefaultTxPoolConfig.MaxTrsPerBlock {
-		log.Warn("Sanitizing invalid txpool max num of transactions a block %d.", config.MaxTrsPerBlock)
+		log.Warn("Sanitizing invalid txs pool max num of transactions a block %d.", config.MaxTrsPerBlock)
 		config.MaxTrsPerBlock = DefaultTxPoolConfig.MaxTrsPerBlock
 	}
 }
@@ -125,24 +125,24 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 	txs := pool.txsQueue.Consumer()
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
-		log.Info("Get tx %x form txpool.", common.TxHash(tx))
+		log.Info("Get tx %x form tx pool.", common.TxHash(tx))
 		txList = append(txList, tx)
 		pool.process[*tx.Data.From] = sortTxsByNonce(pool.process[*tx.Data.From], tx)
 		pool.all.Remove(common.TxHash(tx))
 	}
-	log.Info("Get txs %d form txpool.", len(txList))
+	log.Info("Total get %d tx form pool for next block.", len(txList))
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
 	return txList
 }
 
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs(txs []*types.Transaction) {
-	log.Info("Update txpool after the txs has been applied by producer.")
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	for i := 0; i < len(txs); i++ {
 		txList := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
+		log.Info("Update tx %x from pool after commit block.", txHash)
 		exist := false
 		for j := 0; j < len(txList); j++ {
 			hash := common.TxHash(txList[j])
@@ -154,7 +154,7 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 			}
 		}
 		if !exist {
-			log.Error("tx %x not exist in process, please confirm.", txHash)
+			log.Error("Tx %x not exist in process, please confirm.", txHash)
 		}
 	}
 }
@@ -164,7 +164,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	hash := common.TxHash(tx)
 	monitor.JTMetrics.TxpoolIngressTx.Add(float64(1))
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots {
-		log.Error("Txpool has full, which define is %d, while we have %d.",
+		log.Error("Tx pool has full, which defined %d, but have %d.",
 			pool.config.GlobalSlots, uint64(pool.all.Count()))
 		monitor.JTMetrics.TxpoolDiscardedTx.Add(float64(1))
 		return fmt.Errorf("txpool has full")
@@ -186,15 +186,6 @@ func (pool *TxPool) addTx(tx *types.Transaction) {
 	pool.txsQueue.Producer(tx)
 	// Add to all
 	pool.all.Add(tx)
-}
-
-func (pool *TxPool) GetTxByHash(hash types.Hash) *types.Transaction {
-	txs := pool.all.Get(hash)
-	if nil == txs {
-		log.Warn("Tx %x not exist in pool.", hash)
-		return nil
-	}
-	return txs
 }
 
 func sortTxsByNonce(txs []*types.Transaction, tx *types.Transaction) []*types.Transaction {
