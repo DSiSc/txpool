@@ -140,7 +140,7 @@ func Test_DelTxs(t *testing.T) {
 
 func TestGetTxByHash(t *testing.T) {
 	assert := assert.New(t)
-	tx := mock_transactions(1)[0]
+	tx := mock_transactions(10)[9]
 	assert.NotNil(tx)
 	txpool := NewTxPool(DefaultTxPoolConfig)
 	assert.NotNil(txpool)
@@ -163,23 +163,12 @@ func TestGetTxByHash(t *testing.T) {
 	assert.NotEqual(exceptTx, mockHash)
 	exceptTx = GetTxByHash(mockHash)
 	assert.Nil(exceptTx)
-}
 
-func Test_sortTxsByNonce(t *testing.T) {
-	assert := assert.New(t)
-	txs := mock_transactions(5)
-	var temp []*types.Transaction
-	temp = sortTxsByNonce(temp, txs[0])
-	temp = sortTxsByNonce(temp, txs[1])
-	temp = sortTxsByNonce(temp, txs[2])
-	temp = sortTxsByNonce(temp, txs[3])
-	temp = sortTxsByNonce(temp, txs[4])
-	assert.Equal(5, len(temp))
-	assert.Equal(uint64(4), temp[0].Data.AccountNonce)
-	assert.Equal(uint64(3), temp[1].Data.AccountNonce)
-	assert.Equal(uint64(2), temp[2].Data.AccountNonce)
-	assert.Equal(uint64(1), temp[3].Data.AccountNonce)
-	assert.Equal(uint64(0), temp[4].Data.AccountNonce)
+	// get a tx exist in process
+	txList := pool.GetTxs()
+	assert.Equal(1, len(txList))
+	exceptTx = GetTxByHash(common.TxHash(tx))
+	assert.Equal(common.TxHash(txList[0]), common.TxHash(exceptTx))
 }
 
 func TestGetPoolNonce(t *testing.T) {

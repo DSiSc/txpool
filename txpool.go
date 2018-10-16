@@ -32,12 +32,12 @@ type TxsPool interface {
 type TxPool struct {
 	config   TxPoolConfig
 	all      *txLookup
-	process  map[types.Address][]*types.Transaction
+	process  map[types.Address]*accountLookup
 	txsQueue *tools.CycleQueue
 	mu       sync.RWMutex
 }
 
-// structure for tx lookup.
+// struct for tx lookup.
 type txLookup struct {
 	all  map[types.Hash]*types.Transaction
 	lock sync.RWMutex
@@ -48,6 +48,52 @@ func newTxLookup() *txLookup {
 	return &txLookup{
 		all: make(map[types.Hash]*types.Transaction),
 	}
+}
+
+// struct for lookup by account
+type accountLookup struct {
+	hashMap  map[types.Hash]*types.Transaction
+	maxNonce uint64
+	lock     sync.RWMutex
+}
+
+// newTxLookup returns a new txLookup structure.
+func newAccountLookup() *accountLookup {
+	return &accountLookup{
+		hashMap:  make(map[types.Hash]*types.Transaction),
+		maxNonce: 0,
+	}
+}
+
+func (t *accountLookup) Add(tx *types.Transaction, hash types.Hash) {
+	t.lock.Lock()
+	if _, ok := t.hashMap[hash]; !ok {
+		if tx.Data.AccountNonce > t.maxNonce {
+			t.maxNonce = tx.Data.AccountNonce
+		}
+		t.hashMap[hash] = tx
+	} else {
+		log.Warn("tx %x has exist in pool process.", hash)
+	}
+	t.lock.Unlock()
+}
+
+func (t *accountLookup) Delete(hash types.Hash) {
+	t.lock.Lock()
+	if _, ok := t.hashMap[hash]; ok {
+		tx := t.hashMap[hash]
+		delete(t.hashMap, hash)
+		if tx.Data.AccountNonce >= t.maxNonce {
+			t.maxNonce = 0
+			for _, value := range t.hashMap {
+				if value.Data.AccountNonce > t.maxNonce {
+					t.maxNonce = value.Data.AccountNonce
+				}
+			}
+		}
+	}
+	log.Warn("tx %x not exist in process.", hash)
+	t.lock.Unlock()
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -83,7 +129,7 @@ func NewTxPool(config TxPoolConfig) TxsPool {
 		config:   config,
 		all:      newTxLookup(),
 		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrsPerBlock),
-		process:  make(map[types.Address][]*types.Transaction, 0),
+		process:  make(map[types.Address]*accountLookup),
 	}
 	GlobalTxsPool = pool
 	return pool
@@ -125,37 +171,32 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 	txs := pool.txsQueue.Consumer()
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
-		log.Info("Get tx %x form tx pool.", common.TxHash(tx))
 		txList = append(txList, tx)
-		pool.process[*tx.Data.From] = sortTxsByNonce(pool.process[*tx.Data.From], tx)
+		if nil == pool.process[*tx.Data.From] {
+			pool.process[*tx.Data.From] = newAccountLookup()
+		}
+		pool.process[*tx.Data.From].Add(tx, common.TxHash(tx))
 		pool.all.Remove(common.TxHash(tx))
+		log.Info("Get tx %x form tx pool.", common.TxHash(tx))
 	}
-	log.Info("Total get %d tx form pool for next block.", len(txList))
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
 	return txList
 }
 
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs(txs []*types.Transaction) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
 	for i := 0; i < len(txs); i++ {
-		txList := pool.process[*txs[i].Data.From]
+		nonceMap := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
-		log.Info("Update tx %x from pool after commit block.", txHash)
 		exist := false
-		for j := 0; j < len(txList); j++ {
-			hash := common.TxHash(txList[j])
-			if bytes.Equal(txHash[:], hash[:]) {
-				pool.process[*txs[i].Data.From] = append(
-					pool.process[*txs[i].Data.From][:j], pool.process[*txs[i].Data.From][j+1:]...)
-				exist = true
-				break
-			}
-		}
-		if !exist {
+		nonceMap.lock.Lock()
+		if _, exist = nonceMap.hashMap[txHash]; exist {
+			log.Info("Delete tx %x from pool after commit block.", txHash)
+			delete(nonceMap.hashMap, txHash)
+		} else {
 			log.Error("Tx %x not exist in process, please confirm.", txHash)
 		}
+		nonceMap.lock.Unlock()
 	}
 }
 
@@ -188,28 +229,23 @@ func (pool *TxPool) addTx(tx *types.Transaction) {
 	pool.all.Add(tx)
 }
 
-func sortTxsByNonce(txs []*types.Transaction, tx *types.Transaction) []*types.Transaction {
-	// simple sort
-	var index int
-	newNonce := tx.Data.AccountNonce
-	txsCount := len(txs)
-	for index = 0; index < txsCount; index++ {
-		if newNonce > txs[index].Data.AccountNonce {
-			break
-		}
-	}
-	temp := append([]*types.Transaction{}, txs[index:]...)
-	txs = append(txs[:index], tx)
-	txs = append(txs, temp...)
-	return txs
-}
-
 func GetTxByHash(hash types.Hash) *types.Transaction {
 	txs := GlobalTxsPool.all.Get(hash)
 	if nil == txs {
-		log.Warn("Tx %x not exist in pool.", hash)
-		return nil
+		log.Warn("Tx %x not exist in all queue.", hash)
+		for _, value := range GlobalTxsPool.process {
+			value.lock.RLock()
+			if nil != value {
+				if tx, ok := value.hashMap[hash]; ok {
+					value.lock.RUnlock()
+					return tx
+				}
+			}
+			value.lock.RUnlock()
+		}
+		log.Warn("Tx %x not exist in process queue.", hash)
 	}
+	log.Warn("Tx %x not exist in txpool.", hash)
 	return txs
 }
 
@@ -223,9 +259,12 @@ func GetPoolNonce(address types.Address) uint64 {
 		}
 	}
 	GlobalTxsPool.all.lock.RUnlock()
-	txs := GlobalTxsPool.process[address]
-	if len(txs) > 0 && txs[0].Data.AccountNonce > defaultNonce {
-		defaultNonce = txs[0].Data.AccountNonce
+	if txs, ok := GlobalTxsPool.process[address]; ok {
+		txs.lock.RLock()
+		if txs.maxNonce > defaultNonce {
+			defaultNonce = txs.maxNonce
+		}
+		txs.lock.RUnlock()
 	}
 	return defaultNonce
 }
