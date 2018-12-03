@@ -169,6 +169,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 	txs := pool.txsQueue.Consumer()
+	log.Info("get txs from pool is %d.", len(txs))
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
 		txList = append(txList, tx)
@@ -218,6 +219,8 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		return fmt.Errorf("the tx %x has exist", hash)
 	}
 	pool.addTx(tx)
+	log.Info("now txpool count is %d txs and ppos:%d and gpos:%d.",
+		pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
 	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
 	return nil
 }

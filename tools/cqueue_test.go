@@ -123,21 +123,21 @@ func TestCycleQueue_ProducerAdndConsumer(t *testing.T) {
 }
 
 func TestCycleQueue_ProducerAdndConsumer1(t *testing.T) {
-	MockCQ := NewQueue(4, 2)
+	MockCQ := NewQueue(4, 3)
 	MockCQ.Producer(txs[0])
 	MockCQ.Producer(txs[1])
 	MockCQ.Producer(txs[2])
 	assert.Equal(t, uint64(3), MockCQ.ppos)
 	assert.Equal(t, uint64(0), MockCQ.gpos)
 	assert.Equal(t, uint64(3), MockCQ.Count())
-	MockCQ.Producer(txs[3])
-	assert.Equal(t, uint64(0), MockCQ.ppos)
-	assert.Equal(t, uint64(0), MockCQ.gpos)
-	assert.Equal(t, uint64(4), MockCQ.Count())
 	MockCQ.Consumer()
-	assert.Equal(t, uint64(0), MockCQ.ppos)
-	assert.Equal(t, uint64(2), MockCQ.gpos)
-	assert.Equal(t, uint64(2), MockCQ.Count())
-	assert.Equal(t, uint64(0), MockCQ.GetPpos())
-	assert.Equal(t, uint64(2), MockCQ.GetGpos())
+	assert.Equal(t, uint64(3), MockCQ.ppos)
+	assert.Equal(t, uint64(3), MockCQ.gpos)
+	assert.Equal(t, uint64(0), MockCQ.Count())
+
+	MockCQ.Producer(txs[3])
+	MockCQ.Producer(txs[4])
+	txs := MockCQ.Consumer()
+	assert.Equal(t, 2, len(txs))
+	assert.Equal(t, MockCQ.ppos, MockCQ.gpos)
 }

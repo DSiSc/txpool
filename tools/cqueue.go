@@ -55,24 +55,29 @@ func (cq *CycleQueue) Producer(value interface{}) {
 func (cq *CycleQueue) Consumer() []interface{} {
 	var count uint64
 	var txs = make([]interface{}, 0, cq.maxPerGet)
+	var overflow = false
 	for {
 		cq.c.L.Lock()
 		if cq.gpos == cq.ppos {
-			// queue is empty
 			if !cq.full {
 				cq.c.L.Unlock()
 				return txs
 			} else {
-				// queue has been fully
 				cq.full = false
+				if overflow {
+					return txs
+				}
 			}
+		}
+
+		if cq.gpos > cq.ppos {
+			overflow = true
 		}
 
 		if count >= cq.maxPerGet {
 			cq.c.L.Unlock()
 			return txs
 		}
-
 		tx := cq.cqueue[cq.gpos]
 		cq.gpos += 1
 		if cq.gpos == cq.total {
