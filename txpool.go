@@ -179,6 +179,8 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		pool.all.Remove(common.TxHash(tx))
 		log.Info("Get tx %x form tx pool.", common.TxHash(tx))
 	}
+	log.Warn("now txpool still reside %d txs with ppos:%d and gpos:%d.",
+		pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
 	return txList
 }

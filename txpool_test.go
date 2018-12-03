@@ -199,3 +199,20 @@ func TestGetPoolNonce(t *testing.T) {
 	exceptNonce = GetPoolNonce(mockFromAddress)
 	assert.Equal(uint64(2), exceptNonce)
 }
+
+func TestNewTxPool(t *testing.T) {
+	txpool := NewTxPool(DefaultTxPoolConfig)
+	transactions := mock_transactions(4096)
+	for index := 0; index < len(transactions); index++ {
+		txpool.AddTx(transactions[index])
+	}
+	txs := txpool.(*TxPool)
+	lens := txs.txsQueue.Count()
+	assert.Equal(t, uint64(4096), lens)
+
+	mm := txpool.GetTxs()
+	assert.Equal(t, 512, len(mm))
+
+	lens = txs.txsQueue.Count()
+	assert.Equal(t, uint64(4096-512), lens)
+}

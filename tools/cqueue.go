@@ -84,3 +84,31 @@ func (cq *CycleQueue) Consumer() []interface{} {
 		cq.c.L.Unlock()
 	}
 }
+
+func (cq *CycleQueue) Count() uint64 {
+	cq.c.L.Lock()
+	defer cq.c.L.Unlock()
+	if cq.gpos < cq.ppos {
+		return (cq.ppos - cq.gpos)
+	}
+	if cq.gpos > cq.ppos {
+		return (cq.total - cq.gpos + cq.ppos)
+	}
+
+	if cq.full {
+		return cq.total
+	}
+	return (cq.gpos - cq.ppos)
+}
+
+func (cq *CycleQueue) GetGpos() uint64 {
+	cq.c.L.Lock()
+	defer cq.c.L.Unlock()
+	return cq.gpos
+}
+
+func (cq *CycleQueue) GetPpos() uint64 {
+	cq.c.L.Lock()
+	defer cq.c.L.Unlock()
+	return cq.ppos
+}
