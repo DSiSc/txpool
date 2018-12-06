@@ -65,6 +65,7 @@ func (cq *CycleQueue) Consumer() []interface{} {
 			} else {
 				cq.full = false
 				if overflow {
+					cq.c.L.Unlock()
 					return txs
 				}
 			}
