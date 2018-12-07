@@ -103,8 +103,8 @@ type TxPoolConfig struct {
 }
 
 var DefaultTxPoolConfig = TxPoolConfig{
-	GlobalSlots:    4096,
-	MaxTrsPerBlock: 512,
+	GlobalSlots:    40960,
+	MaxTrsPerBlock: 20480,
 }
 
 var GlobalTxsPool *TxPool
@@ -178,10 +178,10 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 		}
 		pool.process[*tx.Data.From].Add(tx, common.TxHash(tx))
 		pool.all.Remove(common.TxHash(tx))
-		log.Info("Get tx %x form tx pool.", common.TxHash(tx))
+		log.Debug("Get tx %x form tx pool.", common.TxHash(tx))
 	}
-	log.Warn("now txpool still reside %d txs with ppos:%d and gpos:%d.",
-		pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
+	log.Info("fetch %d txs, now pool reside %d txs with ppos:%d and gpos:%d.",
+		len(txList), pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
 	return txList
 }
@@ -194,7 +194,7 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 		exist := false
 		nonceMap.lock.Lock()
 		if _, exist = nonceMap.hashMap[txHash]; exist {
-			log.Info("Delete tx %x from pool after commit block.", txHash)
+			log.Debug("Delete tx %x from pool after commit block.", txHash)
 			delete(nonceMap.hashMap, txHash)
 		} else {
 			log.Error("Tx %x not exist in process, please confirm.", txHash)

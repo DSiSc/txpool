@@ -36,16 +36,15 @@ func mock_transactions(num int) []*types.Transaction {
 
 // Test new a txpool
 func Test_NewTxPool(t *testing.T) {
-	var slot uint64 = 64
 	assert := assert.New(t)
 
-	mock_config := mock_txpool_config(slot)
+	mock_config := mock_txpool_config(DefaultTxPoolConfig.GlobalSlots - 1)
 	txpool := NewTxPool(mock_config)
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
-	assert.Equal(slot, instance.config.GlobalSlots, "they should be equal")
+	assert.Equal(DefaultTxPoolConfig.GlobalSlots-1, instance.config.GlobalSlots, "they should be equal")
 
-	mock_config = mock_txpool_config(uint64(4097))
+	mock_config = mock_txpool_config(DefaultTxPoolConfig.GlobalSlots + 1)
 	txpool = NewTxPool(mock_config)
 	instance = txpool.(*TxPool)
 	assert.Equal(DefaultTxPoolConfig.GlobalSlots, instance.config.GlobalSlots, "they should be equal")
@@ -201,7 +200,12 @@ func TestGetPoolNonce(t *testing.T) {
 }
 
 func TestNewTxPool(t *testing.T) {
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	var mockTxPoolConfig = TxPoolConfig{
+		GlobalSlots:    4096,
+		MaxTrsPerBlock: 512,
+	}
+
+	txpool := NewTxPool(mockTxPoolConfig)
 	transactions := mock_transactions(4096)
 	for index := 0; index < len(transactions); index++ {
 		txpool.AddTx(transactions[index])
