@@ -169,7 +169,7 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 	txs := pool.txsQueue.Consumer()
-	log.Info("get txs from pool is %d.", len(txs))
+	log.Debug("get txs from pool is %d.", len(txs))
 	for _, value := range txs {
 		tx := value.(*types.Transaction)
 		txList = append(txList, tx)
