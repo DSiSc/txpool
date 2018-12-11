@@ -2,11 +2,12 @@ package tools
 
 import (
 	"sync"
+	`github.com/DSiSc/craft/types`
 )
 
 type CycleQueue struct {
 	c         *sync.Cond
-	cqueue    []interface{}
+	cqueue    []*types.Transaction
 	ppos      uint64 // index that put a item
 	gpos      uint64 // index that get a item
 	total     uint64 // total length of the queue
@@ -17,26 +18,14 @@ type CycleQueue struct {
 func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
 	return &CycleQueue{
 		c:         sync.NewCond(&sync.Mutex{}),
-		cqueue:    make([]interface{}, quesuSize),
+		cqueue:    make([]*types.Transaction, quesuSize),
 		total:     quesuSize,
 		maxPerGet: maxItemPerGet,
 		full:      false,
 	}
 }
 
-/*
-func pirntInfo(value interface{}, put bool, c *CycleQueue) {
-	tx := value.(*types.Transaction)
-	if put {
-		log.Debug("put item[%d]: %d and hash is %x.",
-			c.ppos, tx.Data.AccountNonce, common.TxHash(tx))
-	} else {
-		log.Debug("get item[%d]: %d and hash is %x.",
-			c.gpos, tx.Data.AccountNonce, common.TxHash(tx))
-	}
-}
-*/
-func (cq *CycleQueue) Producer(value interface{}) {
+func (cq *CycleQueue) Producer(value *types.Transaction) {
 	cq.c.L.Lock()
 	// roll back
 	if cq.ppos+1 == cq.total {
@@ -47,14 +36,13 @@ func (cq *CycleQueue) Producer(value interface{}) {
 		cq.cqueue[cq.ppos] = value
 		cq.ppos += 1
 	}
-	// pirntInfo(value, true, cq)
 	cq.c.L.Unlock()
 
 }
 
-func (cq *CycleQueue) Consumer() []interface{} {
+func (cq *CycleQueue) Consumer() []*types.Transaction {
 	var count uint64
-	var txs = make([]interface{}, 0, cq.maxPerGet)
+	var txs = make([]*types.Transaction, 0, cq.maxPerGet)
 	var overflow = false
 	for {
 		cq.c.L.Lock()
@@ -85,7 +73,6 @@ func (cq *CycleQueue) Consumer() []interface{} {
 			cq.gpos = 0
 		}
 		txs = append(txs, tx)
-		// pirntInfo(tx, false, cq)
 		count = count + 1
 		cq.c.L.Unlock()
 	}

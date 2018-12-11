@@ -165,14 +165,11 @@ func (t *txLookup) Remove(hash types.Hash) {
 
 // Get pending txs from txpool.
 func (pool *TxPool) GetTxs() []*types.Transaction {
-	txList := make([]*types.Transaction, 0)
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
-	txs := pool.txsQueue.Consumer()
-	log.Debug("get txs from pool is %d.", len(txs))
-	for _, value := range txs {
-		tx := value.(*types.Transaction)
-		txList = append(txList, tx)
+	txList := pool.txsQueue.Consumer()
+	log.Info("get txs from pool is %d.", len(txList))
+	for _, tx := range txList {
 		if nil == pool.process[*tx.Data.From] {
 			pool.process[*tx.Data.From] = newAccountLookup()
 		}
