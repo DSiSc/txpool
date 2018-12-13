@@ -218,7 +218,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	}
 	if nil != pool.all.Get(hash) {
 		monitor.JTMetrics.TxpoolDuplacatedTx.Add(float64(1))
-		log.Error("The tx %x has exist, please confirm.", hash)
+		log.Debug("The tx %x has exist, please confirm.", hash)
 		return fmt.Errorf("the tx %x has exist", hash)
 	}
 	pool.addTx(tx)
