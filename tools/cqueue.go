@@ -1,8 +1,10 @@
 package tools
 
 import (
+	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/txpool/common"
+	"github.com/ontio/ontology/common/log"
 	"sync"
-	`github.com/DSiSc/craft/types`
 )
 
 type CycleQueue struct {
@@ -13,6 +15,7 @@ type CycleQueue struct {
 	total     uint64 // total length of the queue
 	maxPerGet uint64 // max num of item a get
 	full      bool
+	data      map[types.Hash]bool
 }
 
 func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
@@ -22,18 +25,19 @@ func NewQueue(quesuSize uint64, maxItemPerGet uint64) *CycleQueue {
 		total:     quesuSize,
 		maxPerGet: maxItemPerGet,
 		full:      false,
+		data:      make(map[types.Hash]bool),
 	}
 }
 
-func (cq *CycleQueue) Producer(value *types.Transaction) {
+func (cq *CycleQueue) Producer(tx *types.Transaction) {
 	cq.c.L.Lock()
 	// roll back
+	cq.cqueue[cq.ppos] = tx
+	cq.data[common.TxHash(tx)] = true
 	if cq.ppos+1 == cq.total {
-		cq.cqueue[cq.ppos] = value
 		cq.ppos = 0
 		cq.full = true
 	} else {
-		cq.cqueue[cq.ppos] = value
 		cq.ppos += 1
 	}
 	cq.c.L.Unlock()
@@ -68,12 +72,18 @@ func (cq *CycleQueue) Consumer() []*types.Transaction {
 			return txs
 		}
 		tx := cq.cqueue[cq.gpos]
+		txHash := common.TxHash(tx)
 		cq.gpos += 1
 		if cq.gpos == cq.total {
 			cq.gpos = 0
 		}
-		txs = append(txs, tx)
-		count = count + 1
+		if !cq.data[txHash] {
+			log.Debug("tx %x has been committed to block.", txHash)
+		} else {
+			txs = append(txs, tx)
+			count = count + 1
+		}
+		delete(cq.data, txHash)
 		cq.c.L.Unlock()
 	}
 }
@@ -104,4 +114,12 @@ func (cq *CycleQueue) GetPpos() uint64 {
 	cq.c.L.Lock()
 	defer cq.c.L.Unlock()
 	return cq.ppos
+}
+
+func (cq *CycleQueue) SetDiscarding(txs []types.Hash) {
+	cq.c.L.Lock()
+	for _, tx := range txs {
+		cq.data[tx] = false
+	}
+	cq.c.L.Unlock()
 }

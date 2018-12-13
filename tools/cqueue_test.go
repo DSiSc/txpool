@@ -2,6 +2,7 @@ package tools
 
 import (
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -140,4 +141,14 @@ func TestCycleQueue_ProducerAdndConsumer1(t *testing.T) {
 	txs := MockCQ.Consumer()
 	assert.Equal(t, 2, len(txs))
 	assert.Equal(t, MockCQ.ppos, MockCQ.gpos)
+}
+
+func TestCycleQueue_SetDiscarding(t *testing.T) {
+	MockCQ := NewQueue(4, 2)
+	MockCQ.Producer(txs[0])
+	MockCQ.Producer(txs[1])
+	MockCQ.Producer(txs[2])
+	MockCQ.SetDiscarding([]types.Hash{common.TxHash(txs[0])})
+	txs := MockCQ.Consumer()
+	assert.Equal(t, 2, len(txs))
 }

@@ -188,9 +188,8 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	for i := 0; i < len(txs); i++ {
 		nonceMap := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
-		exist := false
 		nonceMap.lock.Lock()
-		if _, exist = nonceMap.hashMap[txHash]; exist {
+		if _, ok := nonceMap.hashMap[txHash]; ok {
 			log.Debug("Delete tx %x from pool after commit block.", txHash)
 			delete(nonceMap.hashMap, txHash)
 		} else {
@@ -216,7 +215,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		return fmt.Errorf("the tx %x has exist", hash)
 	}
 	pool.addTx(tx)
-	log.Info("now txpool count is %d txs and ppos:%d and gpos:%d.",
+	log.Debug("now txpool count is %d txs and ppos:%d and gpos:%d.",
 		pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
 	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
 	return nil
