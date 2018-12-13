@@ -186,16 +186,23 @@ func (pool *TxPool) GetTxs() []*types.Transaction {
 // Update processing queue, clean txs from process and all queue.
 func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	for i := 0; i < len(txs); i++ {
-		nonceMap := pool.process[*txs[i].Data.From]
 		txHash := common.TxHash(txs[i])
-		nonceMap.lock.Lock()
-		if _, ok := nonceMap.hashMap[txHash]; ok {
-			log.Debug("Delete tx %x from pool after commit block.", txHash)
-			delete(nonceMap.hashMap, txHash)
+		pool.mu.Lock()
+		if accountTxsMap, ok := pool.process[*txs[i].Data.From]; !ok {
+			log.Warn("txs %x not exist in process queue.", txHash)
 		} else {
-			log.Error("Tx %x not exist in process, please confirm.", txHash)
+			accountTxsMap.lock.Lock()
+			if _, ok := accountTxsMap.hashMap[txHash]; ok {
+				log.Debug("Delete tx %x from pool after commit block.", txHash)
+				delete(accountTxsMap.hashMap, txHash)
+			} else {
+				log.Warn("tx %x not exist in process hashMap, please confirm.", txHash)
+			}
+			accountTxsMap.lock.Unlock()
 		}
-		nonceMap.lock.Unlock()
+		pool.all.Remove(txHash)
+		pool.txsQueue.SetDiscarding(txHash)
+		pool.mu.Unlock()
 	}
 }
 

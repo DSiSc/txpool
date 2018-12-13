@@ -148,7 +148,7 @@ func TestCycleQueue_SetDiscarding(t *testing.T) {
 	MockCQ.Producer(txs[0])
 	MockCQ.Producer(txs[1])
 	MockCQ.Producer(txs[2])
-	MockCQ.SetDiscarding([]types.Hash{common.TxHash(txs[0])})
+	MockCQ.SetDiscarding(common.TxHash(txs[0]))
 	txs := MockCQ.Consumer()
 	assert.Equal(t, 2, len(txs))
 }

@@ -115,15 +115,14 @@ func Test_GetTxs(t *testing.T) {
 // Test DelTxs txs from txpool
 func Test_DelTxs(t *testing.T) {
 	assert := assert.New(t)
-	tx := mock_transactions(1)[0]
-	assert.NotNil(tx)
+	txs := mock_transactions(3)
 
 	txpool := NewTxPool(DefaultTxPoolConfig)
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
 	assert.Equal(0, len(pool.process))
 
-	pool.AddTx(tx)
+	pool.AddTx(txs[0])
 	assert.Equal(0, len(pool.process))
 	assert.Equal(1, pool.all.Count())
 
@@ -131,10 +130,25 @@ func Test_DelTxs(t *testing.T) {
 	assert.Equal(1, len(pool.process))
 	assert.Equal(0, pool.all.Count())
 
-	pool.DelTxs(mock_transactions(1))
+	accountTxs := pool.process[*txs[0].Data.From]
+	assert.Equal(1, len(accountTxs.hashMap))
+	assert.Equal(txs[0], accountTxs.hashMap[common.TxHash(txs[0])])
+
+	pool.DelTxs([]*types.Transaction{txs[1]})
 	assert.Equal(1, len(pool.process))
-	// delete an not exists txs
-	pool.DelTxs(mock_transactions(1))
+
+	pool.DelTxs([]*types.Transaction{txs[0]})
+	assert.Equal(1, len(pool.process))
+	assert.Equal(0, len(accountTxs.hashMap))
+
+	pool.AddTx(txs[0])
+	pool.AddTx(txs[1])
+	pool.AddTx(txs[2])
+	assert.Equal(3, pool.all.Count())
+	pool.DelTxs([]*types.Transaction{txs[1], txs[2]})
+	assert.Equal(1, pool.all.Count())
+	pool.DelTxs([]*types.Transaction{txs[0]})
+	assert.Equal(0, pool.all.Count())
 }
 
 func TestGetTxByHash(t *testing.T) {

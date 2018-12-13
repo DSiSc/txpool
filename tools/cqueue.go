@@ -3,7 +3,7 @@ package tools
 import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
-	"github.com/ontio/ontology/common/log"
+	"github.com/DSiSc/craft/log"
 	"sync"
 )
 
@@ -116,10 +116,8 @@ func (cq *CycleQueue) GetPpos() uint64 {
 	return cq.ppos
 }
 
-func (cq *CycleQueue) SetDiscarding(txs []types.Hash) {
+func (cq *CycleQueue) SetDiscarding(tx types.Hash) {
 	cq.c.L.Lock()
-	for _, tx := range txs {
-		cq.data[tx] = false
-	}
+	cq.data[tx] = false
 	cq.c.L.Unlock()
 }
