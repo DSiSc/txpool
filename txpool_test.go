@@ -170,12 +170,19 @@ func Test_AddTx(t *testing.T) {
 	txList := mock_transactions(3)
 	assert.NotNil(txList)
 
+	events := NewMockEvent()
+	events.Subscribe(types.EventAddTxToTxPool, func(v interface{}) {
+		if nil != v {
+			log.Info("add tx %v success.", v)
+		}
+	})
+
 	var MockTxPoolConfig = TxPoolConfig{
 		GlobalSlots:    2,
 		MaxTrsPerBlock: 2,
 	}
 
-	txpool := NewTxPool(MockTxPoolConfig, NewMockEvent())
+	txpool := NewTxPool(MockTxPoolConfig, events)
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
 	assert.Equal(uint64(2), instance.config.GlobalSlots)

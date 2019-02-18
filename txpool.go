@@ -224,6 +224,7 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 		return fmt.Errorf("the tx %x has exist", hash)
 	}
 	pool.addTx(tx)
+	pool.eventCenter.Notify(types.EventAddTxToTxPool, hash)
 	log.Debug("now txpool count is %d txs and ppos:%d and gpos:%d.",
 		pool.txsQueue.Count(), pool.txsQueue.GetPpos(), pool.txsQueue.GetGpos())
 	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
