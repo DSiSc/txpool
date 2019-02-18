@@ -1,9 +1,9 @@
 package tools
 
 import (
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
-	"github.com/DSiSc/craft/log"
 	"sync"
 )
 

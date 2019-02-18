@@ -1,13 +1,126 @@
 package txpool
 
 import (
+	"errors"
 	"fmt"
+	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"math/big"
+	"sync"
 	"testing"
 )
+
+type MockEvent struct {
+	m           sync.RWMutex
+	Subscribers map[types.EventType]map[types.Subscriber]types.EventFunc
+}
+
+func NewMockEvent() types.EventCenter {
+	return &MockEvent{
+		Subscribers: make(map[types.EventType]map[types.Subscriber]types.EventFunc),
+	}
+}
+
+//  adds a new subscriber to Event.
+func (e *MockEvent) Subscribe(eventType types.EventType, eventFunc types.EventFunc) types.Subscriber {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	sub := make(chan interface{})
+	_, ok := e.Subscribers[eventType]
+	if !ok {
+		e.Subscribers[eventType] = make(map[types.Subscriber]types.EventFunc)
+	}
+	e.Subscribers[eventType][sub] = eventFunc
+
+	return sub
+}
+
+// UnSubscribe removes the specified subscriber
+func (e *MockEvent) UnSubscribe(eventType types.EventType, subscriber types.Subscriber) (err error) {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	subEvent, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not exist")
+		return
+	}
+
+	delete(subEvent, subscriber)
+	close(subscriber)
+
+	return
+}
+
+// Notify subscribers that Subscribe specified event
+func (e *MockEvent) Notify(eventType types.EventType, value interface{}) (err error) {
+
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	subs, ok := e.Subscribers[eventType]
+	if !ok {
+		err = errors.New("event type not register")
+		return
+	}
+
+	switch value.(type) {
+	case error:
+		log.Error("Receive errors is [%v].", value)
+	}
+	log.Info("Receive eventType is [%d].", eventType)
+
+	for _, event := range subs {
+		go e.NotifySubscriber(event, value)
+	}
+	return nil
+}
+
+func (e *MockEvent) NotifySubscriber(eventFunc types.EventFunc, value interface{}) {
+	if eventFunc == nil {
+		return
+	}
+
+	// invoke subscriber event func
+	eventFunc(value)
+
+}
+
+//Notify all event subscribers
+func (e *MockEvent) NotifyAll() (errs []error) {
+	e.m.RLock()
+	defer e.m.RUnlock()
+
+	for eventType, _ := range e.Subscribers {
+		if err := e.Notify(eventType, nil); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errs
+}
+
+// unsubscribe all event and subscriber elegant
+func (e *MockEvent) UnSubscribeAll() {
+	e.m.Lock()
+	defer e.m.Unlock()
+	for eventtype, _ := range e.Subscribers {
+		subs, ok := e.Subscribers[eventtype]
+		if !ok {
+			continue
+		}
+		for subscriber, _ := range subs {
+			delete(subs, subscriber)
+			close(subscriber)
+		}
+	}
+	// TODO: open it when txswitch and blkswith stop complete
+	//e.Subscribers = make(map[types.EventType]map[types.Subscriber]types.EventFunc)
+	return
+}
 
 // mock a config for txpool
 func mock_txpool_config(slot uint64) TxPoolConfig {
@@ -39,13 +152,13 @@ func Test_NewTxPool(t *testing.T) {
 	assert := assert.New(t)
 
 	mock_config := mock_txpool_config(DefaultTxPoolConfig.GlobalSlots - 1)
-	txpool := NewTxPool(mock_config)
+	txpool := NewTxPool(mock_config, NewMockEvent())
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
 	assert.Equal(DefaultTxPoolConfig.GlobalSlots-1, instance.config.GlobalSlots, "they should be equal")
 
 	mock_config = mock_txpool_config(DefaultTxPoolConfig.GlobalSlots + 1)
-	txpool = NewTxPool(mock_config)
+	txpool = NewTxPool(mock_config, NewMockEvent())
 	instance = txpool.(*TxPool)
 	assert.Equal(DefaultTxPoolConfig.GlobalSlots, instance.config.GlobalSlots, "they should be equal")
 }
@@ -62,7 +175,7 @@ func Test_AddTx(t *testing.T) {
 		MaxTrsPerBlock: 2,
 	}
 
-	txpool := NewTxPool(MockTxPoolConfig)
+	txpool := NewTxPool(MockTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
 	instance := txpool.(*TxPool)
 	assert.Equal(uint64(2), instance.config.GlobalSlots)
@@ -97,7 +210,7 @@ func Test_GetTxs(t *testing.T) {
 	tx := mock_transactions(1)[0]
 	assert.NotNil(tx)
 
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
 
 	pool := txpool.(*TxPool)
@@ -117,7 +230,7 @@ func Test_DelTxs(t *testing.T) {
 	assert := assert.New(t)
 	txs := mock_transactions(3)
 
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
 	assert.Equal(0, len(pool.process))
@@ -155,7 +268,7 @@ func TestGetTxByHash(t *testing.T) {
 	assert := assert.New(t)
 	tx := mock_transactions(10)[9]
 	assert.NotNil(tx)
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
 
@@ -187,7 +300,7 @@ func TestGetTxByHash(t *testing.T) {
 func TestGetPoolNonce(t *testing.T) {
 	assert := assert.New(t)
 	var txs []*types.Transaction
-	txpool := NewTxPool(DefaultTxPoolConfig)
+	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 
 	mockFromAddress := types.Address{
 		0xb2, 0x6f, 0x2b, 0x34, 0x2a, 0xab, 0x24, 0xbc, 0xf6, 0x3e,
@@ -219,7 +332,7 @@ func TestNewTxPool(t *testing.T) {
 		MaxTrsPerBlock: 512,
 	}
 
-	txpool := NewTxPool(mockTxPoolConfig)
+	txpool := NewTxPool(mockTxPoolConfig, NewMockEvent())
 	transactions := mock_transactions(4096)
 	for index := 0; index < len(transactions); index++ {
 		txpool.AddTx(transactions[index])

@@ -30,11 +30,12 @@ type TxsPool interface {
 }
 
 type TxPool struct {
-	config   TxPoolConfig
-	all      *txLookup
-	process  map[types.Address]*accountLookup
-	txsQueue *tools.CycleQueue
-	mu       sync.RWMutex
+	config      TxPoolConfig
+	all         *txLookup
+	process     map[types.Address]*accountLookup
+	txsQueue    *tools.CycleQueue
+	mu          sync.RWMutex
+	eventCenter types.EventCenter
 }
 
 // struct for tx lookup.
@@ -122,14 +123,15 @@ func (config *TxPoolConfig) sanitize() {
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound transactions from the network and local.
-func NewTxPool(config TxPoolConfig) TxsPool {
+func NewTxPool(config TxPoolConfig, eventCenter types.EventCenter) TxsPool {
 	config.sanitize()
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
-		config:   config,
-		all:      newTxLookup(),
-		txsQueue: tools.NewQueue(config.GlobalSlots, config.MaxTrsPerBlock),
-		process:  make(map[types.Address]*accountLookup),
+		config:      config,
+		all:         newTxLookup(),
+		txsQueue:    tools.NewQueue(config.GlobalSlots, config.MaxTrsPerBlock),
+		process:     make(map[types.Address]*accountLookup),
+		eventCenter: eventCenter,
 	}
 	GlobalTxsPool = pool
 	return pool
