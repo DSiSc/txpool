@@ -1,48 +1,40 @@
 package common
 
 import (
-	"encoding/json"
 	gconf "github.com/DSiSc/craft/config"
+	"github.com/DSiSc/craft/rlp"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/crypto-suite/crypto/sha3"
+	"hash"
 	"math/big"
 )
 
-// Sum returns the first 32 bytes of hash of the bz.
-func Sum(bz []byte) []byte {
+func HashAlg() hash.Hash {
 	var alg string
 	if value, ok := gconf.GlobalConfig.Load(gconf.HashAlgName); ok {
 		alg = value.(string)
 	} else {
 		alg = "SHA256"
 	}
-	hasher := sha3.NewHashByAlgName(alg)
-	hasher.Write(bz)
-	hash := hasher.Sum(nil)
-	return hash[:types.HashLength]
+	return sha3.NewHashByAlgName(alg)
 }
 
+func rlpHash(x interface{}) (h types.Hash) {
+	hw := HashAlg()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
+}
+
+// Hash hashes the RLP encoding of tx.
+// It uniquely identifies the transaction.
 func TxHash(tx *types.Transaction) types.Hash {
 	if hash := tx.Hash.Load(); hash != nil {
 		return hash.(types.Hash)
 	}
-	hashData := types.TxData{
-		AccountNonce: tx.Data.AccountNonce,
-		Price:        tx.Data.Price,
-		GasLimit:     tx.Data.GasLimit,
-		Recipient:    tx.Data.Recipient,
-		Amount:       tx.Data.Amount,
-		Payload:      tx.Data.Payload,
-		V:            tx.Data.V,
-		R:            tx.Data.R,
-		S:            tx.Data.S,
-	}
-	jsonByte, _ := json.Marshal(hashData)
-	sumByte := Sum(jsonByte)
-	var temp types.Hash
-	copy(temp[:], sumByte)
-	tx.Hash.Store(temp)
-	return temp
+	v := rlpHash(tx)
+	tx.Hash.Store(v)
+	return v
 }
 
 func CopyBytes(b []byte) (copiedBytes []byte) {
