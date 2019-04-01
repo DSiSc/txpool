@@ -5,3 +5,5 @@
 github.com/DSiSc/craft:master
 github.com/DSiSc/txpool:master
 github.com/DSiSc/crypto-suite:master
+github.com/DSiSc/blockchain:master
+github.com/DSiSc/monkey:master
