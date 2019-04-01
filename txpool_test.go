@@ -3,13 +3,17 @@ package txpool
 import (
 	"errors"
 	"fmt"
+	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/monkey"
 	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"math/big"
+	"reflect"
 	"sync"
 	"testing"
+	"time"
 )
 
 type MockEvent struct {
@@ -141,7 +145,7 @@ func mock_transactions(num int) []*types.Transaction {
 	amount := new(big.Int)
 	txList := make([]*types.Transaction, 0)
 	for i := 0; i < num; i++ {
-		tx := common.NewTransaction(uint64(i), to[i], amount, uint64(i), amount, nil, to[i])
+		tx := common.NewTransaction(0, to[i], amount, uint64(i), amount, nil, common.HexToAddress(fmt.Sprintf("0x%d", i)))
 		txList = append(txList, tx)
 	}
 	return txList
@@ -184,31 +188,29 @@ func Test_AddTx(t *testing.T) {
 
 	txpool := NewTxPool(MockTxPoolConfig, events)
 	assert.NotNil(txpool)
-	instance := txpool.(*TxPool)
-	assert.Equal(uint64(2), instance.config.GlobalSlots)
-	assert.Equal(uint64(2), instance.config.MaxTrsPerBlock)
 
 	err := txpool.AddTx(txList[0])
 	assert.Nil(err)
-	instance = txpool.(*TxPool)
+
+	instance := txpool.(*TxPool)
 
 	// add duplicate tx to txpool
 	err = txpool.AddTx(txList[0])
 	assert.NotNil(err)
-	errs := fmt.Errorf("the tx 9fc61548bcbf8ec6b44b4a258f7f8580dfe6860f430b21af33ed9a1c4dd6ad15 has exist")
-	assert.Equal(errs, err)
-	instance = txpool.(*TxPool)
-	assert.Equal(1, instance.all.Count(), "they should be equal")
+	assert.Equal(1, instance.txBuffer.Len(), "they should be equal")
 
 	err = txpool.AddTx(txList[1])
 	assert.Nil(err)
-	assert.Equal(int(2), instance.all.Count(), "they should be equal")
+	assert.Equal(2, instance.txBuffer.Len(), "they should be equal")
+
 	err = txpool.AddTx(txList[2])
 	assert.NotNil(err)
-	instance = txpool.(*TxPool)
-	excErr := fmt.Errorf("txpool has full")
-	assert.Equal(excErr, err)
 
+	instance.config.TxMaxCacheTime = 1
+	time.Sleep(2 * time.Second)
+	err = txpool.AddTx(txList[2])
+	assert.Nil(err)
+	assert.Equal(2, instance.txBuffer.Len())
 }
 
 // Test Get a tx from txpool
@@ -219,17 +221,24 @@ func Test_GetTxs(t *testing.T) {
 
 	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
+	assert.Nil(txpool.AddTx(tx))
 
-	pool := txpool.(*TxPool)
-	assert.Equal(0, len(pool.process))
+	chain := &blockchain.BlockChain{}
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+		return 0
+	})
+	returnedTx := txpool.GetTxs()
+	assert.NotNil(returnedTx)
+	assert.Equal(1, len(returnedTx))
 
-	txpool.AddTx(tx)
-	assert.Equal(0, len(pool.process))
-	assert.Equal(1, pool.all.Count())
-
-	pool.GetTxs()
-	assert.Equal(1, len(pool.process))
-	assert.Equal(0, pool.all.Count())
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+		return 1
+	})
+	returnedTx = txpool.GetTxs()
+	assert.Equal(0, len(returnedTx))
 }
 
 // Test DelTxs txs from txpool
@@ -240,35 +249,23 @@ func Test_DelTxs(t *testing.T) {
 	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 	assert.NotNil(txpool)
 	pool := txpool.(*TxPool)
-	assert.Equal(0, len(pool.process))
-
 	pool.AddTx(txs[0])
-	assert.Equal(0, len(pool.process))
-	assert.Equal(1, pool.all.Count())
-
-	pool.GetTxs()
-	assert.Equal(1, len(pool.process))
-	assert.Equal(0, pool.all.Count())
-
-	accountTxs := pool.process[*txs[0].Data.From]
-	assert.Equal(1, len(accountTxs.hashMap))
-	assert.Equal(txs[0], accountTxs.hashMap[common.TxHash(txs[0])])
+	assert.Equal(1, pool.txBuffer.Len())
 
 	pool.DelTxs([]*types.Transaction{txs[1]})
-	assert.Equal(1, len(pool.process))
+	assert.Equal(1, pool.txBuffer.Len())
 
 	pool.DelTxs([]*types.Transaction{txs[0]})
-	assert.Equal(1, len(pool.process))
-	assert.Equal(0, len(accountTxs.hashMap))
+	assert.Equal(0, pool.txBuffer.Len())
 
 	pool.AddTx(txs[0])
 	pool.AddTx(txs[1])
 	pool.AddTx(txs[2])
-	assert.Equal(3, pool.all.Count())
+	assert.Equal(3, pool.txBuffer.Len())
 	pool.DelTxs([]*types.Transaction{txs[1], txs[2]})
-	assert.Equal(1, pool.all.Count())
+	assert.Equal(1, pool.txBuffer.Len())
 	pool.DelTxs([]*types.Transaction{txs[0]})
-	assert.Equal(0, pool.all.Count())
+	assert.Equal(0, pool.txBuffer.Len())
 }
 
 func TestGetTxByHash(t *testing.T) {
@@ -287,25 +284,17 @@ func TestGetTxByHash(t *testing.T) {
 	assert.Nil(err)
 	exceptTx = GetTxByHash(common.TxHash(tx))
 	assert.Equal(common.TxHash(tx), common.TxHash(exceptTx))
-
-	// try to get not exist tx
-	mockHash := types.Hash{
-		0xbd, 0x79, 0x1d, 0x4a, 0xf9, 0x64, 0x8f, 0xc3, 0x7f, 0x94, 0xeb, 0x36, 0x53, 0x19, 0xf6, 0xd0,
-		0xa9, 0x78, 0x9f, 0x9c, 0x22, 0x47, 0x2c, 0xa7, 0xa6, 0x12, 0xa9, 0xca, 0x4, 0x13, 0xc1, 0x4,
-	}
-	assert.NotEqual(exceptTx, mockHash)
-	exceptTx = GetTxByHash(mockHash)
-	assert.Nil(exceptTx)
-
-	// get a tx exist in process
-	txList := pool.GetTxs()
-	assert.Equal(1, len(txList))
-	exceptTx = GetTxByHash(common.TxHash(tx))
-	assert.Equal(common.TxHash(txList[0]), common.TxHash(exceptTx))
 }
 
 func TestGetPoolNonce(t *testing.T) {
 	assert := assert.New(t)
+	chain := &blockchain.BlockChain{}
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+		return 0
+	})
 	var txs []*types.Transaction
 	txpool := NewTxPool(DefaultTxPoolConfig, NewMockEvent())
 
@@ -320,12 +309,7 @@ func TestGetPoolNonce(t *testing.T) {
 
 	txpool.AddTx(txs[0])
 	txpool.AddTx(txs[1])
-
 	exceptNonce := GetPoolNonce(mockFromAddress)
-	assert.Equal(uint64(1), exceptNonce)
-
-	txpool.GetTxs()
-	exceptNonce = GetPoolNonce(mockFromAddress)
 	assert.Equal(uint64(1), exceptNonce)
 
 	txpool.AddTx(txs[2])
@@ -334,6 +318,13 @@ func TestGetPoolNonce(t *testing.T) {
 }
 
 func TestNewTxPool(t *testing.T) {
+	chain := &blockchain.BlockChain{}
+	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+		return 0
+	})
 	var mockTxPoolConfig = TxPoolConfig{
 		GlobalSlots:    4096,
 		MaxTrsPerBlock: 512,
@@ -345,12 +336,9 @@ func TestNewTxPool(t *testing.T) {
 		txpool.AddTx(transactions[index])
 	}
 	txs := txpool.(*TxPool)
-	lens := txs.txsQueue.Count()
-	assert.Equal(t, uint64(4096), lens)
+	lens := txs.txBuffer.Len()
+	assert.Equal(t, 4096, lens)
 
 	mm := txpool.GetTxs()
 	assert.Equal(t, 512, len(mm))
-
-	lens = txs.txsQueue.Count()
-	assert.Equal(t, uint64(4096-512), lens)
 }

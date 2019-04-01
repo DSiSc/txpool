@@ -94,3 +94,13 @@ func TestHash(t *testing.T) {
 	fmt.Printf("%x\n", hash)
 	assert.NotNil(hash)
 }
+
+func TestHexToAddress(t *testing.T) {
+	addHex := "333c3310824b7c685133f2bedb2ca4b8b4df633d"
+	address := HexToAddress(addHex)
+	b := types.Address{
+		0x33, 0x3c, 0x33, 0x10, 0x82, 0x4b, 0x7c, 0x68, 0x51, 0x33,
+		0xf2, 0xbe, 0xdb, 0x2c, 0xa4, 0xb8, 0xb4, 0xdf, 0x63, 0x3d,
+	}
+	assert.Equal(t, b, address)
+}
