@@ -8,10 +8,10 @@ package txpool
 
 import (
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/monitor"
 	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/tools"
 	"sync"
@@ -34,7 +34,7 @@ type TxPool struct {
 	config      TxPoolConfig
 	txBuffer    *tools.ListBuffer
 	nonceBuffer map[types.Address]uint64
-	chain       *blockchain.BlockChain
+	chain       *repository.Repository
 	mu          sync.RWMutex
 	eventCenter types.EventCenter
 }
@@ -212,7 +212,7 @@ func (pool *TxPool) getChainNonce(address types.Address) uint64 {
 func (pool *TxPool) updateChainInstance(event interface{}) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	if latestChain, err := blockchain.NewLatestStateBlockChain(); err == nil {
+	if latestChain, err := repository.NewLatestStateRepository(); err == nil {
 		pool.chain = latestChain
 	} else {
 		log.Error("failed to get latest blockchain, as: %v. We will panic tx pool, as error is not recoverable", err)

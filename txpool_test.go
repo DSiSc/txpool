@@ -3,10 +3,10 @@ package txpool
 import (
 	"errors"
 	"fmt"
-	"github.com/DSiSc/blockchain"
 	"github.com/DSiSc/craft/log"
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/monkey"
+	"github.com/DSiSc/repository"
 	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"math/big"
@@ -223,18 +223,18 @@ func Test_GetTxs(t *testing.T) {
 	assert.NotNil(txpool)
 	assert.Nil(txpool.AddTx(tx))
 
-	chain := &blockchain.BlockChain{}
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return chain, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
 		return 0
 	})
 	returnedTx := txpool.GetTxs()
 	assert.NotNil(returnedTx)
 	assert.Equal(1, len(returnedTx))
 
-	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
 		return 1
 	})
 	returnedTx = txpool.GetTxs()
@@ -288,11 +288,11 @@ func TestGetTxByHash(t *testing.T) {
 
 func TestGetPoolNonce(t *testing.T) {
 	assert := assert.New(t)
-	chain := &blockchain.BlockChain{}
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return chain, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
 		return 0
 	})
 	var txs []*types.Transaction
@@ -318,11 +318,11 @@ func TestGetPoolNonce(t *testing.T) {
 }
 
 func TestNewTxPool(t *testing.T) {
-	chain := &blockchain.BlockChain{}
-	monkey.Patch(blockchain.NewLatestStateBlockChain, func() (*blockchain.BlockChain, error) {
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return chain, nil
 	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*blockchain.BlockChain, types.Address) uint64 {
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
 		return 0
 	})
 	var mockTxPoolConfig = TxPoolConfig{
