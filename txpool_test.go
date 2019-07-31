@@ -146,6 +146,25 @@ func mock_transactions(num int) []*types.Transaction {
 	txList := make([]*types.Transaction, 0)
 	for i := 0; i < num; i++ {
 		tx := common.NewTransaction(0, to[i], amount, uint64(i), amount, nil, common.HexToAddress(fmt.Sprintf("0x%d", i)))
+		common.TxHash(tx)
+		txList = append(txList, tx)
+	}
+	return txList
+}
+
+// mock same from transaction
+func mock_samefrom_transactions(num int) []*types.Transaction {
+	to := make([]types.Address, num)
+	for m := 0; m < num; m++ {
+		for j := 0; j < types.AddressLength; j++ {
+			to[m][j] = byte(m)
+		}
+	}
+	amount := new(big.Int)
+	txList := make([]*types.Transaction, 0)
+	for i := 0; i < num; i++ {
+		tx := common.NewTransaction(uint64(i), to[i], amount, uint64(i), amount, nil, common.HexToAddress(fmt.Sprintf("0x%d", num)))
+		common.TxHash(tx)
 		txList = append(txList, tx)
 	}
 	return txList
@@ -169,6 +188,14 @@ func Test_NewTxPool(t *testing.T) {
 
 // Test add a tx to txpool
 func Test_AddTx(t *testing.T) {
+	defer monkey.UnpatchAll()
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
+		return 0
+	})
 	assert := assert.New(t)
 
 	txList := mock_transactions(3)
@@ -184,6 +211,7 @@ func Test_AddTx(t *testing.T) {
 	var MockTxPoolConfig = TxPoolConfig{
 		GlobalSlots:    2,
 		MaxTrsPerBlock: 2,
+		TxMaxCacheTime: 1,
 	}
 
 	txpool := NewTxPool(MockTxPoolConfig, events)
@@ -215,6 +243,14 @@ func Test_AddTx(t *testing.T) {
 
 // Test Get a tx from txpool
 func Test_GetTxs(t *testing.T) {
+	defer monkey.UnpatchAll()
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
+		return 0
+	})
 	assert := assert.New(t)
 	tx := mock_transactions(1)[0]
 	assert.NotNil(tx)
@@ -223,13 +259,6 @@ func Test_GetTxs(t *testing.T) {
 	assert.NotNil(txpool)
 	assert.Nil(txpool.AddTx(tx))
 
-	chain := &repository.Repository{}
-	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
-		return chain, nil
-	})
-	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
-		return 0
-	})
 	returnedTx := txpool.GetTxs()
 	assert.NotNil(returnedTx)
 	assert.Equal(1, len(returnedTx))
@@ -243,6 +272,14 @@ func Test_GetTxs(t *testing.T) {
 
 // Test DelTxs txs from txpool
 func Test_DelTxs(t *testing.T) {
+	defer monkey.UnpatchAll()
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
+		return 0
+	})
 	assert := assert.New(t)
 	txs := mock_transactions(3)
 
@@ -269,6 +306,14 @@ func Test_DelTxs(t *testing.T) {
 }
 
 func TestGetTxByHash(t *testing.T) {
+	defer monkey.UnpatchAll()
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
+		return 0
+	})
 	assert := assert.New(t)
 	tx := mock_transactions(10)[9]
 	assert.NotNil(tx)
@@ -287,6 +332,7 @@ func TestGetTxByHash(t *testing.T) {
 }
 
 func TestGetPoolNonce(t *testing.T) {
+	defer monkey.UnpatchAll()
 	assert := assert.New(t)
 	chain := &repository.Repository{}
 	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
@@ -318,6 +364,7 @@ func TestGetPoolNonce(t *testing.T) {
 }
 
 func TestNewTxPool(t *testing.T) {
+	defer monkey.UnpatchAll()
 	chain := &repository.Repository{}
 	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
 		return chain, nil
@@ -341,4 +388,42 @@ func TestNewTxPool(t *testing.T) {
 
 	mm := txpool.GetTxs()
 	assert.Equal(t, 512, len(mm))
+}
+
+func TestNewTxPool1(t *testing.T) {
+	defer monkey.UnpatchAll()
+	chain := &repository.Repository{}
+	monkey.Patch(repository.NewLatestStateRepository, func() (*repository.Repository, error) {
+		return chain, nil
+	})
+	monkey.PatchInstanceMethod(reflect.TypeOf(chain), "GetNonce", func(*repository.Repository, types.Address) uint64 {
+		return 0
+	})
+	var mockTxPoolConfig = TxPoolConfig{
+		GlobalSlots:    4096,
+		MaxTrsPerBlock: 512,
+	}
+
+	txpool := NewTxPool(mockTxPoolConfig, NewMockEvent())
+	transactions := mock_samefrom_transactions(4096)
+	for index := 0; index < len(transactions); index++ {
+		txpool.AddTx(transactions[index])
+	}
+	txs := txpool.(*TxPool)
+	lens := txs.txBuffer.Len()
+	assert.Equal(t, 4096, lens)
+
+	readyTxs := txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
+
+	readyTxs = txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
+	readyTxs = txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
+	readyTxs = txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
+	readyTxs = txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
+	readyTxs = txpool.GetTxs()
+	assert.Equal(t, 512, len(readyTxs))
 }

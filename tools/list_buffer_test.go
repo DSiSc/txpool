@@ -1,59 +1,72 @@
 package tools
 
 import (
+	"github.com/DSiSc/craft/types"
+	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
+var (
+	mockHash = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191")
+	mockAddr = common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+)
+
+func mockTransaction() *types.Transaction {
+	return mockTransaction1(mockHash, mockAddr)
+}
+
+func mockTransaction1(hash types.Hash, from types.Address) *types.Transaction {
+	tx := &types.Transaction{
+		Data: types.TxData{
+			From: &from,
+		},
+	}
+	tx.Hash.Store(hash)
+	return tx
+}
+
 func TestNewListBuffer(t *testing.T) {
 	assert := assert.New(t)
-	lb := NewListBuffer()
+	lb := NewListBuffer(100, 100)
 	assert.NotNil(lb)
 	assert.Equal(0, lb.Len())
 }
 
 func TestListBuffer_AddElement(t *testing.T) {
 	assert := assert.New(t)
-	lb := NewListBuffer()
+	lb := NewListBuffer(100, 100)
 	assert.NotNil(lb)
-	assert.Nil(lb.AddElement("1", "1"))
-	assert.NotNil(lb.AddElement("1", "1"))
+	tx := mockTransaction()
+	assert.Nil(lb.AddTx(tx))
+	assert.NotNil(lb.AddTx(tx))
 }
 
 func TestListBuffer_GetElement(t *testing.T) {
 	assert := assert.New(t)
-	lb := NewListBuffer()
+	lb := NewListBuffer(100, 100)
 	assert.NotNil(lb)
-	assert.Nil(lb.AddElement("1", "1"))
-	assert.NotNil(lb.GetElement("1"))
-}
-
-func TestListBuffer_RemoveElement(t *testing.T) {
-	assert := assert.New(t)
-	lb := NewListBuffer()
-	assert.NotNil(lb)
-	assert.Nil(lb.AddElement("1", "1"))
-	e := lb.GetElement("1")
-	assert.NotNil(e)
-	lb.RemoveElement(e)
-	assert.Nil(lb.GetElement("1"))
+	tx := mockTransaction()
+	assert.Nil(lb.AddTx(tx))
+	assert.NotNil(lb.GetTx(tx.Hash.Load().(types.Hash)))
 }
 
 func TestListBuffer_Front(t *testing.T) {
 	assert := assert.New(t)
-	lb := NewListBuffer()
+	lb := NewListBuffer(100, 100)
 	assert.NotNil(lb)
-	assert.Nil(lb.AddElement("1", "1"))
-	assert.Nil(lb.AddElement("2", "2"))
-	assert.Nil(lb.AddElement("3", "3"))
-	e := lb.Front()
-	assert.Equal("1", e.Key())
+	assert.Nil(lb.AddTx(mockTransaction1(common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191"), common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"))))
+	assert.Nil(lb.AddTx(mockTransaction1(common.HexToHash("0x676a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191"), common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"))))
+	assert.Nil(lb.AddTx(mockTransaction1(common.HexToHash("0x576a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191"), common.HexToAddress("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"))))
+	e := lb.TimedTxGroups()
+	assert.Equal(2, len(e))
 }
 
 func TestListBuffer_Len(t *testing.T) {
 	assert := assert.New(t)
-	lb := NewListBuffer()
+	lb := NewListBuffer(100, 100)
 	assert.NotNil(lb)
-	assert.Nil(lb.AddElement("1", "1"))
+	tx := mockTransaction()
+	assert.Nil(lb.AddTx(tx))
 	assert.Equal(1, lb.Len())
 }

@@ -51,7 +51,24 @@ func CopyBytes(b []byte) (copiedBytes []byte) {
 // Lengths of hashes and addresses in bytes.
 const (
 	AddressLength = 20
+	HashLength    = 32
 )
+
+// HexToHash sets byte representation of s to hash.
+// If b is larger than len(h), b will be cropped from the left.
+func HexToHash(s string) types.Hash { return BytesToHash(FromHex(s)) }
+
+// BytesToHash sets b to hash.
+// If b is larger than len(h), b will be cropped from the left.
+func BytesToHash(b []byte) types.Hash {
+	var h types.Hash
+	if len(b) > len(h) {
+		b = b[len(b)-HashLength:]
+	}
+
+	copy(h[HashLength-len(b):], b)
+	return h
+}
 
 // HexToAddress returns Address with byte values of s.
 // If s is larger than len(h), s will be cropped from the left.
