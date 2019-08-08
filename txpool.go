@@ -177,7 +177,7 @@ func GetPoolNonce(address types.Address) uint64 {
 // get account's nonce from chain
 func (pool *TxPool) getChainNonce(address types.Address) uint64 {
 	if nil == pool.chain {
-
+		pool.updateChainInstanceWithoutLock()
 	}
 	return pool.chain.GetNonce(address)
 }
@@ -186,8 +186,13 @@ func (pool *TxPool) getChainNonce(address types.Address) uint64 {
 func (pool *TxPool) updateChainInstance(event interface{}) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	if latestChain, err := repository.NewLatestStateRepository(); err == nil {
-		pool.chain = latestChain
+	pool.updateChainInstanceWithoutLock()
+}
+
+// update chain instance after committing block
+func (pool *TxPool) updateChainInstanceWithoutLock() {
+	if latestRepo, err := repository.NewLatestStateRepository(); err == nil {
+		pool.chain = latestRepo
 	} else {
 		log.Error("failed to get latest blockchain, as: %v. We will panic tx pool, as error is not recoverable", err)
 		panic(fmt.Sprintf("failed to get latest blockchain, as: %v", err))
