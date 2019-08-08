@@ -15,7 +15,6 @@ import (
 	"github.com/DSiSc/txpool/common"
 	"github.com/DSiSc/txpool/tools"
 	"sync"
-	"time"
 )
 
 type TxsPool interface {
@@ -33,7 +32,6 @@ type TxsPool interface {
 type TxPool struct {
 	config      TxPoolConfig
 	txBuffer    *tools.ListBuffer
-	nonceBuffer map[types.Address]uint64
 	chain       *repository.Repository
 	mu          sync.RWMutex
 	eventCenter types.EventCenter
@@ -76,8 +74,7 @@ func NewTxPool(config TxPoolConfig, eventCenter types.EventCenter) TxsPool {
 	// Create the transaction pool with its initial settings
 	pool := &TxPool{
 		config:      config,
-		txBuffer:    tools.NewListBuffer(),
-		nonceBuffer: make(map[types.Address]uint64),
+		txBuffer:    tools.NewListBuffer(config.GlobalSlots, config.TxMaxCacheTime),
 		eventCenter: eventCenter,
 	}
 	GlobalTxsPool = pool
@@ -91,40 +88,27 @@ func NewTxPool(config TxPoolConfig, eventCenter types.EventCenter) TxsPool {
 
 // Get pending txs from txpool.
 func (pool *TxPool) GetTxs() []*types.Transaction {
-	tmpNonceCache := make(map[types.Address]uint64)
 	txList := make([]*types.Transaction, 0)
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
-	if element := pool.txBuffer.Front(); element != nil {
-	BEGIN:
-		tx := element.Value().(*types.Transaction)
-		from := *tx.Data.From
-		txAccountNonce := tx.Data.AccountNonce
-
-		// check nonce
-		if cachedNonce, ok := tmpNonceCache[from]; ok {
-			//check cached nonce
-			if (txAccountNonce - cachedNonce) == 1 {
-				tmpNonceCache[from] = txAccountNonce
-				txList = append(txList, tx)
-			} else if txAccountNonce <= cachedNonce {
-				pool.delTx(tx)
+	log.Debug("total number of tx in pool is: %d", pool.txBuffer.Len())
+	for addr, l := range pool.txBuffer.TimedTxGroups() {
+		startNonce := pool.getChainNonce(addr)
+		log.Debug("account %x chain nonce %d VS %d", addr, startNonce, pool.txBuffer.NonceInBuffer(addr))
+		for elem := l.Front(); elem != nil; {
+			nextElem := elem.Next()
+			timedTx := elem.Value.(*tools.TimedTransaction)
+			if timedTx.Tx.Data.AccountNonce == startNonce {
+				txList = append(txList, timedTx.Tx)
+				startNonce++
+				if uint64(len(txList)) >= pool.config.MaxTrsPerBlock {
+					monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
+					return txList
+				}
+			} else if timedTx.Tx.Data.AccountNonce < startNonce {
+				pool.txBuffer.RemoveTx(timedTx.Tx.Hash.Load().(types.Hash))
 			}
-		} else {
-			// check chain nonce
-			chainNonce := pool.getChainNonce(from)
-			if txAccountNonce == chainNonce {
-				tmpNonceCache[from] = txAccountNonce
-				txList = append(txList, tx)
-			} else if txAccountNonce < chainNonce {
-				pool.delTx(tx)
-			}
-		}
-
-		// retrieve next tx
-		element = element.Next()
-		if uint64(len(txList)) < pool.config.MaxTrsPerBlock && element != nil {
-			goto BEGIN
+			elem = nextElem
 		}
 	}
 	monitor.JTMetrics.TxpoolOutgoingTx.Add(float64(len(txList)))
@@ -136,7 +120,7 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	for _, tx := range txs {
-		pool.delTx(tx)
+		pool.txBuffer.RemoveTx(tx.Hash.Load().(types.Hash))
 	}
 }
 
@@ -145,35 +129,41 @@ func (pool *TxPool) AddTx(tx *types.Transaction) error {
 	hash := common.TxHash(tx)
 	monitor.JTMetrics.TxpoolIngressTx.Add(float64(1))
 	pool.mu.Lock()
-	defer pool.mu.Unlock()
-	if uint64(pool.txBuffer.Len()) >= pool.config.GlobalSlots {
-		monitor.JTMetrics.TxpoolDiscardedTx.Add(float64(1))
-		font := pool.txBuffer.Front()
-		// delete timeout tx
-		if uint64(time.Now().Sub(font.CreationTime()).Seconds()) > pool.config.TxMaxCacheTime {
-			fontTx := font.Value().(*types.Transaction)
-			pool.delTx(fontTx)
+	chainNonce := pool.getChainNonce(*tx.Data.From)
+	if tx.Data.AccountNonce < chainNonce {
+		pool.mu.Unlock()
+		return fmt.Errorf("Tx %x nonce is too low", hash)
+	}
+
+	preLen := pool.txBuffer.Len()
+	if err := pool.txBuffer.AddTx(tx); err != nil {
+		pool.mu.Unlock()
+		if err == tools.DuplicateError {
+			monitor.JTMetrics.TxpoolDuplacatedTx.Add(float64(1))
+			log.Debug("The tx %x has exist, please confirm.", hash)
+			return fmt.Errorf("the tx %x has exist", hash)
 		} else {
-			log.Error("Tx pool has full, which defined %d, but have %d.",
-				pool.config.GlobalSlots, uint64(pool.txBuffer.Len()))
-			return fmt.Errorf("txpool has full")
+			return fmt.Errorf("Tx pool is full, will discard tx %x. ", hash)
 		}
 	}
-	if nil != pool.addTx(tx) {
-		monitor.JTMetrics.TxpoolDuplacatedTx.Add(float64(1))
-		log.Debug("The tx %x has exist, please confirm.", hash)
-		return fmt.Errorf("the tx %x has exist", hash)
+
+	if pool.txBuffer.Len() <= preLen {
+		log.Error("Tx pool is full, have discard some tx.")
+		monitor.JTMetrics.TxpoolDiscardedTx.Add(float64(1))
+	} else {
+		monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
 	}
-	pool.eventCenter.Notify(types.EventAddTxToTxPool, hash)
-	monitor.JTMetrics.TxpoolPooledTx.Add(float64(1))
+	pool.mu.Unlock()
+	log.Debug("tx num in pool: %d", pool.txBuffer.Len())
+	pool.eventCenter.Notify(types.EventAddTxToTxPool, tx)
 	return nil
 }
 
 func GetTxByHash(hash types.Hash) *types.Transaction {
 	GlobalTxsPool.mu.RLock()
 	defer GlobalTxsPool.mu.RUnlock()
-	if txElem := GlobalTxsPool.txBuffer.GetElement(hash); txElem != nil {
-		return txElem.Value().(*types.Transaction)
+	if txElem := GlobalTxsPool.txBuffer.GetTx(hash); txElem != nil {
+		return txElem
 	}
 	return nil
 }
@@ -181,30 +171,14 @@ func GetTxByHash(hash types.Hash) *types.Transaction {
 func GetPoolNonce(address types.Address) uint64 {
 	GlobalTxsPool.mu.RLock()
 	defer GlobalTxsPool.mu.RUnlock()
-	if _, ok := GlobalTxsPool.nonceBuffer[address]; ok {
-		return GlobalTxsPool.nonceBuffer[address]
-	}
-	return 0
-}
-
-// add tx to buffer and cache the nonce
-func (pool *TxPool) addTx(tx *types.Transaction) error {
-	if nonce, ok := pool.nonceBuffer[*tx.Data.From]; !ok || nonce < tx.Data.AccountNonce {
-		pool.nonceBuffer[*tx.Data.From] = tx.Data.AccountNonce
-	}
-	return pool.txBuffer.AddElement(tx.Hash.Load(), tx)
-}
-
-// delete tx from buffer and remove unused nonce cache
-func (pool *TxPool) delTx(tx *types.Transaction) {
-	if nonce, ok := pool.nonceBuffer[*tx.Data.From]; ok && nonce <= tx.Data.AccountNonce {
-		delete(pool.nonceBuffer, *tx.Data.From)
-	}
-	pool.txBuffer.RemoveElementByKey(tx.Hash.Load())
+	return GlobalTxsPool.txBuffer.NonceInBuffer(address)
 }
 
 // get account's nonce from chain
 func (pool *TxPool) getChainNonce(address types.Address) uint64 {
+	if nil == pool.chain {
+
+	}
 	return pool.chain.GetNonce(address)
 }
 
