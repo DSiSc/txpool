@@ -4,12 +4,14 @@ import (
 	"github.com/DSiSc/craft/types"
 	"github.com/DSiSc/txpool/common"
 	"github.com/stretchr/testify/assert"
+	"math/big"
 	"testing"
 )
 
 var (
-	mockHash = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191")
-	mockAddr = common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+	mockHash  = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191")
+	mockHash1 = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd190")
+	mockAddr  = common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 )
 
 func mockTransaction() *types.Transaction {
@@ -69,4 +71,20 @@ func TestListBuffer_Len(t *testing.T) {
 	tx := mockTransaction()
 	assert.Nil(lb.AddTx(tx))
 	assert.Equal(1, lb.Len())
+}
+
+func TestListBuffer_AddTx(t *testing.T) {
+	assert := assert.New(t)
+	lb := NewListBuffer(100, 100)
+	assert.NotNil(lb)
+	tx := mockTransaction()
+	assert.Nil(lb.AddTx(tx))
+	assert.Equal(1, lb.Len())
+	assert.Equal(1, len(lb.txs))
+
+	tx1 := mockTransaction1(mockHash1, *tx.Data.From)
+	tx1.Data.Price = big.NewInt(2)
+	assert.Nil(lb.AddTx(tx1))
+	assert.Equal(1, lb.Len())
+	assert.Equal(1, len(lb.txs))
 }

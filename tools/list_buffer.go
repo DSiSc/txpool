@@ -134,6 +134,10 @@ func (self *ListBuffer) insertOrReplace(sameFromTxs *list.List, tx *types.Transa
 		eTx := e.Value.(*TimedTransaction)
 		if eTx.Tx.Data.AccountNonce == tx.Data.AccountNonce {
 			e.Value = timedTx
+
+			// delete previous tx in txList cache
+			eHash := eTx.Tx.Hash.Load().(types.Hash)
+			delete(self.txs, eHash)
 			return true
 		}
 		if eTx.Tx.Data.AccountNonce < tx.Data.AccountNonce {
