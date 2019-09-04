@@ -120,7 +120,7 @@ func (pool *TxPool) DelTxs(txs []*types.Transaction) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	for _, tx := range txs {
-		pool.txBuffer.RemoveTx(tx.Hash.Load().(types.Hash))
+		pool.txBuffer.RemoveOlderTx(*tx.Data.From, tx.Data.AccountNonce)
 	}
 }
 
