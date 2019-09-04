@@ -85,12 +85,36 @@ func (self *ListBuffer) GetTx(hash types.Hash) *types.Transaction {
 	return self.txs[hash]
 }
 
-// RemoveElement remove an element from list buffer
+// RemoveTx remove an element from list buffer
 func (self *ListBuffer) RemoveTx(hash types.Hash) {
 	if elem := self.txs[hash]; elem != nil {
 		delete(self.txs, hash)
 		self.deleteTx(*elem.Data.From, elem.Data.AccountNonce)
 		self.decLen()
+	}
+}
+
+// RemoveOlderTx remove tx nonce less than specified nonce from buffer
+func (self *ListBuffer) RemoveOlderTx(addr types.Address, nonce uint64) {
+	if l := self.timedTxGroups[addr]; l != nil {
+		for firstE := l.Front(); firstE != nil; {
+			firstTx := firstE.Value.(*TimedTransaction)
+			firstTxHash := firstTx.Tx.Hash.Load().(types.Hash)
+			if firstTx.Tx.Data.AccountNonce > nonce {
+				return
+			}
+
+			nextE := firstE.Next()
+			if firstTx.Tx.Data.AccountNonce <= nonce {
+				delete(self.txs, firstTxHash)
+				l.Remove(firstE)
+				self.decLen()
+			}
+			firstE = nextE
+		}
+		if l.Len() <= 0 {
+			delete(self.timedTxGroups, addr)
+		}
 	}
 }
 
@@ -167,8 +191,7 @@ func (self *ListBuffer) removeTimeOutTx(timedTxGroup *list.List) bool {
 // delete Tx from self.timedTxGroups
 func (self *ListBuffer) deleteTx(addr types.Address, nonce uint64) {
 	if l := self.timedTxGroups[addr]; l != nil {
-		firstE := l.Front()
-		for ; firstE != nil; firstE = firstE.Next() {
+		for firstE := l.Front(); firstE != nil; firstE = firstE.Next() {
 			firstTx := firstE.Value.(*TimedTransaction)
 			if firstTx.Tx.Data.AccountNonce > nonce {
 				return

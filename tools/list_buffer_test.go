@@ -11,6 +11,7 @@ import (
 var (
 	mockHash  = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd191")
 	mockHash1 = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd190")
+	mockHash2 = common.HexToHash("0x776a2bbddcb56d8bc5a97ca8058a76fa5bb27b2a589c80cf508b86d083bdd189")
 	mockAddr  = common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 )
 
@@ -87,4 +88,25 @@ func TestListBuffer_AddTx(t *testing.T) {
 	assert.Nil(lb.AddTx(tx1))
 	assert.Equal(1, lb.Len())
 	assert.Equal(1, len(lb.txs))
+}
+
+func TestListBuffer_RemoveOlderTx(t *testing.T) {
+	assert := assert.New(t)
+	lb := NewListBuffer(100, 100)
+	assert.NotNil(lb)
+	tx := mockTransaction1(mockHash, mockAddr)
+	assert.Nil(lb.AddTx(tx))
+
+	tx = mockTransaction1(mockHash1, mockAddr)
+	tx.Data.AccountNonce = 1
+	assert.Nil(lb.AddTx(tx))
+
+	tx = mockTransaction1(mockHash2, mockAddr)
+	tx.Data.AccountNonce = 2
+	assert.Nil(lb.AddTx(tx))
+
+	lb.RemoveOlderTx(mockAddr, 1)
+	assert.Equal(1, lb.Len())
+	assert.Equal(1, len(lb.txs))
+	assert.Equal(1, lb.timedTxGroups[mockAddr].Len())
 }
